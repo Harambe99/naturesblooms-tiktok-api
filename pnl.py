@@ -152,6 +152,25 @@ def build(month: str, through: str,
         "roster", "Creators",
         note="LIVE hours x hourly rate, capped at contracted monthly hours.")
 
+    # ---- TikTok fees on an ORDER-basis estimate.
+    # Real fees only arrive on settlement basis (~6 days behind), so a month-to-date
+    # P&L that used settlement fees alone would understate them badly against
+    # order-basis GMV. We derive the effective fee rate actually being charged and
+    # apply it to order-basis GMV. It is an ESTIMATE, labelled as one, and editable.
+    fee_rate = None
+    rev = abs(st.get("revenue") or 0.0)
+    if rev > 0 and st.get("fees"):
+        fee_rate = round(abs(st["fees"]) / rev, 4)
+    est_fees = round(gmv * fee_rate, 2) if fee_rate else 0.0
+    add("fees_est", "TikTok fees (estimated)", -abs(est_fees), "order-est",
+        "Cost of sales",
+        note=(f"No order-basis fee feed exists. Effective rate of {fee_rate*100:.1f}% "
+              f"derived from {st.get('count', 0)} settled statements "
+              f"(${abs(st.get('fees') or 0):,.2f} of fees on ${rev:,.2f} revenue), "
+              f"applied to order-basis GMV. Estimate — edit if you know better."
+              if fee_rate else
+              "Could not derive a fee rate — no settled statements in this window yet."))
+
     # ---- manual external costs
     ext_total = 0.0
     ext_rows = []
@@ -186,7 +205,7 @@ def build(month: str, through: str,
             r["overridden"] = False
 
     # ---- net. Order basis only, so settlement rows are excluded from the total.
-    order_rows = [r for r in rows if r["basis"] in ("order", "roster", "manual")
+    order_rows = [r for r in rows if r["basis"] in ("order", "order-est", "roster", "manual")
                   and r["kind"] in ("revenue", "cost")]
     net = round(sum(r["value"] for r in order_rows), 2)
     gmv_eff = next((r["value"] for r in rows if r["id"] == "gmv"), 0.0)
@@ -196,10 +215,22 @@ def build(month: str, through: str,
         "rows": rows, "external_items": ext_rows,
         "locked": LOCKED_ROWS,
         "net": net,
+        "net_label": "Net before ad spend",
         "margin": round(net / gmv_eff, 4) if gmv_eff else None,
-        "basis_warning": ("Two bases on this page. Revenue/COGS/retainers are ORDER basis "
-                          "(fresh to the data date). The Settlement group is FINANCE basis "
-                          "and lags ~6 days. The Net figure uses ORDER basis only — the "
-                          "settlement rows are shown for reconciliation, not added in."),
+        "fee_rate": fee_rate,
+        "settlement_count": st.get("count", 0),
+        # Stated loudly because reading this number as a true net would be wrong:
+        # ad spend is the single largest cost at NB and is not obtainable here.
+        "net_caveat": ("This is NOT a true bottom line. AD SPEND IS MISSING and cannot be "
+                       "pulled — it lives in the TikTok Ads API, which needs its own app and "
+                       "owner approval. In October ad spend drove ~72% of GMV at ~1.6 ROAS, "
+                       "so the real net will be materially lower than the figure shown. "
+                       "TikTok fees here are an estimate derived from settled statements, "
+                       "not an order-basis actual."),
+        "basis_warning": ("Three bases on this page. Revenue, COGS and retainers are ORDER "
+                          "basis (fresh to the data date). TikTok fees are an ORDER-BASIS "
+                          "ESTIMATE from the settled fee rate. The Settlement group is "
+                          "FINANCE basis and lags ~6 days — it is shown for reconciliation "
+                          "and is NOT added into the net."),
         "groups": ["Revenue", "Cost of sales", "Creators", "External", "Settlement"],
     }

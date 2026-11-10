@@ -696,18 +696,23 @@ async function renderPnl(force){
   $('view').innerHTML=`
    <h2>P&amp;L — ${esc(d.month)}</h2>
    <p class="sub">Month to date, through <b>${esc(pr.through)}</b>. ${esc(pr.explain)}.</p>
+   <div class="note bad"><b>Read this before using the net.</b> ${esc(d.net_caveat)}</div>
    <div class="cards">
-     <div class="card"><span class="rail ${d.net>=0?'ok':'no'}"></span><h4>Net (order basis)</h4>
-       <div class="v">${m(d.net)}</div><div class="g">margin ${pct(d.margin)}</div></div>
+     <div class="card"><span class="rail mid"></span><h4>${esc(d.net_label||'Net')}</h4>
+       <div class="v">${m(d.net)}</div>
+       <div class="g">margin ${pct(d.margin)} · <b>excludes ad spend</b></div></div>
      <div class="card"><h4>GMV</h4><div class="v">${m0(d.rows.find(r=>r.id==='gmv')?.value)}</div></div>
      <div class="card"><h4>Days of data</h4><div class="v">${pr.days}
        <span class="tiny">/ ${pr.days_in_month}</span></div>
        <div class="g">${pct(pr.fraction)} of the month</div></div>
+     <div class="card"><h4>Est. fee rate</h4>
+       <div class="v">${d.fee_rate==null?'—':pct(d.fee_rate)}</div>
+       <div class="g">${d.settlement_count?`from ${d.settlement_count} settled statements`:'no settled data yet'}</div></div>
      <div class="card"><h4>Settled net</h4>
        <div class="v">${m0(d.rows.find(r=>r.id==='settled_net')?.value)}</div>
        <div class="g">finance basis, ~6d behind</div></div>
    </div>
-   <div class="note warn"><b>Two bases on this page.</b> ${esc(d.basis_warning)}</div>
+   <div class="note warn"><b>Bases on this page.</b> ${esc(d.basis_warning)}</div>
 
    ${d.groups.filter(g=>byGroup[g]).map(g=>`
      <h3>${esc(g)}</h3>

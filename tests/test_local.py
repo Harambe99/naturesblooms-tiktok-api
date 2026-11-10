@@ -321,3 +321,36 @@ def test_save_is_atomic_and_round_trips():
     assert S.load()["goals"]["gmv_day"] == 3333.0
     S.set_goals({"gmv_day": ""})               # blank clears
     assert "gmv_day" not in S.load()["goals"]
+
+
+def test_fee_estimate_derives_from_settled_rate_and_is_editable():
+    """Fees must be estimated onto order-basis GMV, not left at zero, because
+    the settlement feed lags ~6 days behind the GMV it would offset."""
+    sku = {"gmv": 1000.0, "units": 10, "orders": 10, "cogs": 20.0}
+    settle = {"revenue": 500.0, "fees": -100.0, "count": 3, "settlement": 400.0,
+              "refunds": 0.0}
+    out = P.build("2026-11", "2026-11-15", sku, settle, {"totals_effective": {}}, [], {})
+    assert out["fee_rate"] == 0.2                      # 100/500
+    row = [r for r in out["rows"] if r["id"] == "fees_est"][0]
+    assert row["value"] == -200.0                      # 20% of 1,000 GMV
+    assert row["editable"] is True
+    assert row["basis"] == "order-est"
+
+
+def test_net_is_labelled_as_excluding_ad_spend():
+    """Calling this a true net would mislead — ad spend is unobtainable."""
+    out = P.build("2026-11", "2026-11-15",
+                  {"gmv": 100.0, "units": 1, "orders": 1, "cogs": 2.0},
+                  {}, {"totals_effective": {}}, [], {})
+    assert "ad spend" in out["net_label"].lower()
+    assert "AD SPEND IS MISSING" in out["net_caveat"]
+
+
+def test_fee_estimate_absent_when_no_settled_data():
+    out = P.build("2026-11", "2026-11-15",
+                  {"gmv": 100.0, "units": 1, "orders": 1, "cogs": 2.0},
+                  {"revenue": 0.0, "fees": 0.0}, {"totals_effective": {}}, [], {})
+    assert out["fee_rate"] is None
+    row = [r for r in out["rows"] if r["id"] == "fees_est"][0]
+    assert row["value"] == 0.0
+    assert "Could not derive" in row["note"]

@@ -598,10 +598,14 @@ async def api_pnl(admin: str = Query(...), force: int = 0, month: str = ""):
 
     async def pull_settlement():
         try:
+            # sort_field/sort_order are required by this endpoint — omitting them
+            # makes it fail, which is why the settlement rows read zero at first.
             return await tiktok_get("/finance/202309/statements", {
                 "statement_time_ge": int(_dt.datetime.fromisoformat(first + "T00:00:00").timestamp()),
                 "statement_time_lt": int(_dt.datetime.fromisoformat(nxt + "T00:00:00").timestamp()),
                 "page_size": 100,
+                "sort_field": "statement_time",
+                "sort_order": "DESC",
             })
         except Exception as e:                       # finance shape varies by region
             return {"_error": str(e)[:200]}
