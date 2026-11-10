@@ -185,7 +185,8 @@ def build(videos: List[Dict[str, Any]], roster: Dict[str, Any],
         })
 
     rows.sort(key=lambda x: (-x["gmv"], -x["posted"]))
-    on_roster = {r["handle"].lower() for r in roster["video"]}
+    # handle can be null for an unresolved creator, so never assume a string here
+    on_roster = {(r.get("handle") or "").lower() for r in roster["video"] if r.get("handle")}
     on_roster |= {(r.get("handle") or "").lower() for r in roster["live"] if r.get("handle")}
     off = sorted(
         ({"handle": u, "videos": len(d["new"]), "active": len(d["videos"]),
