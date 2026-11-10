@@ -1,0 +1,31 @@
+services:
+  - type: web
+    name: nb-tiktok-api
+    runtime: python
+    plan: starter            # free plan has no disk; starter is the cheapest with one
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    disk:
+      name: tokens
+      mountPath: /var/data   # refresh token survives restarts and redeploys
+      sizeGB: 1
+    envVars:
+      - key: TTS_APP_KEY
+        sync: false
+      - key: TTS_APP_SECRET
+        sync: false
+      - key: TTS_SERVICE_ID
+        sync: false
+      - key: TTS_REDIRECT_URI
+        sync: false
+      - key: ADMIN_TOKEN
+        sync: false
+      - key: TOKEN_STORE_PATH
+        value: /var/data/tokens.json
+      - key: REFRESH_EVERY_HOURS
+        value: "6"
+      - key: TOKEN_BOOTSTRAP
+        sync: false
+      - key: ALERT_WEBHOOK
+        sync: false
