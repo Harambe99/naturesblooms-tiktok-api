@@ -43,6 +43,17 @@ def money(v: Any) -> float:
         return 0.0
 
 
+def posted_in_window(v: Dict[str, Any], start: str, end: str) -> bool:
+    """
+    CRITICAL: the analytics feed returns videos ACTIVE in the window, including
+    content posted months earlier that is still selling. Retainers pay for posts
+    DELIVERED in the period, so delivery must be judged on video_post_time.
+    Counting active videos as delivered would massively overpay.
+    """
+    t = (v.get("video_post_time") or "")[:10]
+    return bool(t) and start <= t < end
+
+
 def build(videos: List[Dict[str, Any]], roster: Dict[str, Any],
           start: str, end: str) -> Dict[str, Any]:
     """Aggregate videos by creator and score them against their retainer."""
@@ -51,8 +62,12 @@ def build(videos: List[Dict[str, Any]], roster: Dict[str, Any],
         u = (v.get("username") or "").strip().lower()
         if not u:
             continue
-        d = by.setdefault(u, {"videos": [], "gmv": 0.0, "views": 0, "units": 0, "orders": 0})
+        d = by.setdefault(u, {"videos": [], "new": [], "gmv": 0.0, "views": 0,
+                              "units": 0, "orders": 0, "new_gmv": 0.0})
         d["videos"].append(v)
+        if posted_in_window(v, start, end):
+            d["new"].append(v)
+            d["new_gmv"] += money(v.get("gmv"))
         d["gmv"] += money(v.get("gmv"))
         d["views"] += int(v.get("views") or 0)
         d["units"] += int(v.get("units_sold") or 0)
@@ -61,8 +76,10 @@ def build(videos: List[Dict[str, Any]], roster: Dict[str, Any],
     rows = []
     for r in roster["video"]:
         h = r["handle"].lower()
-        d = by.get(h, {"videos": [], "gmv": 0.0, "views": 0, "units": 0, "orders": 0})
-        posted = len(d["videos"])
+        d = by.get(h, {"videos": [], "new": [], "gmv": 0.0, "views": 0,
+                       "units": 0, "orders": 0, "new_gmv": 0.0})
+        posted = len(d["new"])          # delivered IN the window — this is what we pay for
+        active = len(d["videos"])       # anything still earning, however old
         inactive = r.get("status") == "Inactive"
         earned = 0.0 if inactive else posted * r["rate"]
         committed = r["videos"] * r["rate"]
@@ -70,14 +87,17 @@ def build(videos: List[Dict[str, Any]], roster: Dict[str, Any],
         rows.append({
             "name": r["name"], "handle": r["handle"], "status": r.get("status", ""),
             "rate": r["rate"], "committed_videos": r["videos"], "committed_cost": committed,
-            "posted": posted, "earned": round(earned, 2),
+            "posted": posted, "active_videos": active,
+            "new_gmv": round(d["new_gmv"], 2),
+            "earned": round(earned, 2),
             "pace": round(posted / r["videos"], 3) if r["videos"] else None,
             "gmv": round(d["gmv"], 2), "views": d["views"],
             "units": d["units"], "orders": d["orders"],
-            "gmv_per_video": round(d["gmv"] / posted, 2) if posted else None,
+            "gmv_per_video": round(d["new_gmv"] / posted, 2) if posted else None,
             "cost_per_gmv": round(earned / d["gmv"], 3) if d["gmv"] else None,
             "roi": round(d["gmv"] / earned, 2) if earned else None,
             "videos": [{
+                "new": posted_in_window(x, start, end),
                 "id": str(x.get("id")),
                 "title": (x.get("title") or "")[:140],
                 "url": f"https://www.tiktok.com/@{r['handle']}/video/{x.get('id')}",
@@ -92,8 +112,9 @@ def build(videos: List[Dict[str, Any]], roster: Dict[str, Any],
     rows.sort(key=lambda x: (-x["gmv"], -x["posted"]))
     on_roster = {r["handle"].lower() for r in roster["video"]}
     off = sorted(
-        ({"handle": u, "videos": len(d["videos"]), "gmv": round(d["gmv"], 2),
-          "views": d["views"], "units": d["units"]} for u, d in by.items() if u not in on_roster),
+        ({"handle": u, "videos": len(d["new"]), "active": len(d["videos"]),
+          "gmv": round(d["gmv"], 2), "views": d["views"], "units": d["units"]}
+         for u, d in by.items() if u not in on_roster),
         key=lambda x: -x["gmv"],
     )[:25]
 
@@ -103,6 +124,7 @@ def build(videos: List[Dict[str, Any]], roster: Dict[str, Any],
         "totals": {
             "roster_creators": len(rows),
             "videos_posted": sum(r["posted"] for r in rows),
+            "videos_active": sum(r["active_videos"] for r in rows),
             "videos_committed": sum(r["committed_videos"] for r in rows),
             "earned": round(sum(r["earned"] for r in rows), 2),
             "committed": round(sum(r["committed_cost"] for r in rows), 2),
@@ -111,6 +133,9 @@ def build(videos: List[Dict[str, Any]], roster: Dict[str, Any],
         },
         "creators": rows,
         "off_roster": off,
+        "basis_note": ("Posts = videos whose post date falls inside the window, which is "
+                       "what a retainer pays for. Active = every video still earning, "
+                       "including older content. GMV is from all active videos."),
         "live_note": "LIVE hours are not exposed by the TikTok Open API — add them manually.",
         "live_roster": roster["live"],
     }

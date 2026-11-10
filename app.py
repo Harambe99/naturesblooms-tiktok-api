@@ -560,7 +560,8 @@ function render(){
   const pick=$('sel').value;
   const t=DATA.totals;
   $('cards').innerHTML=[
-    ['Videos posted',`${n0(t.videos_posted)} <span style="font-size:.8rem;color:#5c6b70">/ ${n0(t.videos_committed)}</span>`],
+    ['Posts delivered',`${n0(t.videos_posted)} <span style="font-size:.8rem;color:#5c6b70">/ ${n0(t.videos_committed)}</span>`],
+    ['Videos still earning',n0(t.videos_active)],
     ['Earned',m(t.earned)],['Committed',m(t.committed)],
     ['Roster GMV',m(t.roster_gmv)],
     ['Cost per $ GMV', t.roster_gmv? (t.earned/t.roster_gmv).toFixed(2):'—'],
@@ -570,20 +571,22 @@ function render(){
   if(pick){ renderOne(DATA.creators.find(c=>c.handle===pick)); return; }
   const rows=[...DATA.creators].sort((a,b)=>((a[SORT.k]??-1)-(b[SORT.k]??-1))*SORT.d);
   $('body').innerHTML=`<div class="scroll"><table><thead><tr>
-    <th data-k="name">Creator</th><th data-k="posted" class="n">Posts</th>
-    <th class="n">Committed</th><th data-k="pace" class="n">Pace</th>
+    <th data-k="name">Creator</th><th data-k="posted" class="n">Posts<br><span style="font-weight:400;text-transform:none">in window</span></th>
+    <th class="n">Committed</th><th data-k="active_videos" class="n">Still<br><span style="font-weight:400;text-transform:none">earning</span></th><th data-k="pace" class="n">Pace</th>
     <th data-k="earned" class="n">Earned</th><th data-k="gmv" class="n">GMV</th>
     <th data-k="views" class="n">Views</th><th data-k="units" class="n">Units</th>
     <th data-k="roi" class="n">GMV / $1</th><th>Status</th></tr></thead><tbody>
     ${rows.map(c=>`<tr data-h="${c.handle}">
       <td><b>${c.name}</b><br><span style="color:#5c6b70;font-size:.78rem">@${c.handle}</span></td>
       <td class="n">${c.posted}</td><td class="n" style="color:#5c6b70">${c.committed_videos}</td>
+      <td class="n" style="color:#5c6b70">${c.active_videos}</td>
       <td class="n">${c.pace==null?'—':(c.pace*100).toFixed(0)+'%'}</td>
       <td class="n">${m(c.earned)}</td><td class="n">${m(c.gmv)}</td>
       <td class="n">${n0(c.views)}</td><td class="n">${n0(c.units)}</td>
       <td class="n">${c.roi==null?'—':c.roi.toFixed(2)}</td>
       <td>${statusPill(c)}</td></tr>`).join('')}
     </tbody></table></div>
+    <div class="note"><b>How posts are counted.</b> ${DATA.basis_note}</div>
     <div class="note">${DATA.live_note}</div>
     <h2>Off-roster creators driving GMV</h2>
     <div class="scroll"><table><thead><tr><th>Handle</th><th class="n">Videos</th>
@@ -607,10 +610,11 @@ function renderOne(c){
         ['GMV per $1 paid',c.roi==null?'—':c.roi.toFixed(2)],['Views',n0(c.views)]]
        .map(([k,v])=>`<div class="card"><h4>${k}</h4><div class="v">${v}</div></div>`).join('')}
    </div>
-   ${c.videos.length?`<div class="scroll"><table><thead><tr><th>Posted</th><th>Video</th>
+   ${c.videos.length?`<div class="scroll"><table><thead><tr><th>Posted</th><th></th><th>Video</th>
      <th class="n">Views</th><th class="n">GMV</th><th class="n">Units</th><th class="n">CTR</th>
      <th>Link</th></tr></thead><tbody>
      ${c.videos.map(v=>`<tr><td style="white-space:nowrap">${(v.posted||'').slice(0,10)}</td>
+       <td>${v.new?'<span class="pill ok">new</span>':'<span class="pill mid">older</span>'}</td>
        <td>${(v.title||'').replace(/</g,'&lt;')||'<i>no title</i>'}</td>
        <td class="n">${n0(v.views)}</td><td class="n">${m(v.gmv)}</td>
        <td class="n">${v.units}</td><td class="n">${v.ctr??'—'}</td>
