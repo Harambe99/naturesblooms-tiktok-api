@@ -1,5 +1,8 @@
 {
-  "_comment": "Nature's Blooms retainer roster, rebuilt 10 Nov 2026 from AJ's November tracker. Edit rates here; the tracker reads this file. Only status 'Inactive' excludes a creator from earned/committed — a blank status still counts. Creators with attribution='owned' are brand accounts: the affiliate Creator List export cannot see them, so only shop video analytics counts their posts.",
+  "_comment": "Nature's Blooms retainer roster. SOURCE OF TRUTH is '~/Desktop/NaturesBlooms - November Retainer Tracker.xlsx' (23 creators). Rebuilt 10 Nov 2026 directly from that sheet, column for column. Rates and commitments must match the sheet exactly — do not 'normalise' them. Three handles are deliberate, verified overrides of the sheet (see handle_note on each). One creator (Ash) is unresolved and one (Daisy) has no handle: both carry resolved=false and are reported but never matched to API data.",
+  "_tracker": "NaturesBlooms - November Retainer Tracker.xlsx",
+  "_rebuilt": "2026-11-10",
+  "_status_rule": "Only an explicit 'Inactive' excludes a creator from earned and committed totals. A blank status still counts. The tracker's Status column is replicated verbatim.",
   "video": [
     {
       "name": "Wellness Wise — Marketing Acct",
@@ -7,7 +10,8 @@
       "videos": 30,
       "rate": 100.0,
       "commission": "20%",
-      "status": "Active",
+      "status": "",
+      "resolved": true,
       "attribution": "owned",
       "note": "Brand-owned marketing account. Her videos are not affiliate-shoppable, so TikTok's Creator List export reports 0 videos and $0 GMV for her. Posts and GMV here come from shop video analytics, which does see them. Do not reconcile this row against the affiliate export."
     },
@@ -17,7 +21,8 @@
       "videos": 4,
       "rate": 250.0,
       "commission": "15%",
-      "status": "Active"
+      "status": "",
+      "resolved": true
     },
     {
       "name": "Qyecha Tierra",
@@ -25,7 +30,8 @@
       "videos": 15,
       "rate": 33.33,
       "commission": "20%",
-      "status": "Active"
+      "status": "",
+      "resolved": true
     },
     {
       "name": "Laquavia Conley",
@@ -33,15 +39,18 @@
       "videos": 20,
       "rate": 33.33,
       "commission": "20%",
-      "status": "Active"
+      "status": "",
+      "resolved": true
     },
     {
       "name": "Amari Sparks",
       "handle": "marismyxx",
-      "videos": 60,
-      "rate": 13.33,
+      "videos": 50,
+      "rate": 16.0,
       "commission": "20%",
-      "status": "Active"
+      "status": "Active",
+      "resolved": true,
+      "note": "Tracker says 50 videos at $16. An earlier roster had 60 at $13.33 — same $800 ceiling but the wrong per-post rate, which understated earned. Corrected to the sheet."
     },
     {
       "name": "Dr. Young",
@@ -49,7 +58,8 @@
       "videos": 30,
       "rate": 11.67,
       "commission": "20%",
-      "status": ""
+      "status": "",
+      "resolved": true
     },
     {
       "name": "Candace Turner",
@@ -57,7 +67,8 @@
       "videos": 30,
       "rate": 15.0,
       "commission": "20%",
-      "status": ""
+      "status": "",
+      "resolved": true
     },
     {
       "name": "Whitney",
@@ -65,7 +76,8 @@
       "videos": 30,
       "rate": 10.0,
       "commission": "20%",
-      "status": ""
+      "status": "",
+      "resolved": true
     },
     {
       "name": "Khaylla Flames",
@@ -73,15 +85,18 @@
       "videos": 30,
       "rate": 20.0,
       "commission": "20%",
-      "status": "Inactive"
+      "status": "",
+      "resolved": true
     },
     {
       "name": "Kaylee",
       "handle": "juicegyalprncess",
-      "videos": 7,
+      "videos": 10,
       "rate": 175.0,
       "commission": "20%",
-      "status": "Active"
+      "status": "",
+      "resolved": true,
+      "handle_note": "Tracker says princessjuicegyal, which returns no data in either the API feed or the affiliate export. juicegyalprncess returns her content and matches the sheet's account link. Verified 10 Nov 2026. Fix the sheet."
     },
     {
       "name": "Tamika Burton",
@@ -89,7 +104,8 @@
       "videos": 10,
       "rate": 50.0,
       "commission": "10%",
-      "status": ""
+      "status": "",
+      "resolved": true
     },
     {
       "name": "Sheree Brown",
@@ -97,7 +113,8 @@
       "videos": 30,
       "rate": 10.0,
       "commission": "20%",
-      "status": ""
+      "status": "",
+      "resolved": true
     },
     {
       "name": "Senovia Brasley",
@@ -105,15 +122,18 @@
       "videos": 15,
       "rate": 20.0,
       "commission": "20%",
-      "status": ""
+      "status": "",
+      "resolved": true
     },
     {
       "name": "Ash",
-      "handle": "lifeintheashlane",
+      "handle": null,
       "videos": 4,
       "rate": 175.0,
       "commission": "20%",
-      "status": ""
+      "status": "",
+      "resolved": false,
+      "note": "HANDLE UNRESOLVED — needs AJ. Tracker says ash.hooooole, which exists in neither the API feed nor the affiliate export. An earlier roster guessed lifeintheashlane, but that account has NB content going back to Oct 2024 and posted nothing in November, so she is not the new Ash (162,849 followers, added Nov). At $175/post this row cannot be paid on guessed data, so it reports zero until a handle is confirmed."
     },
     {
       "name": "Anita Grace",
@@ -121,7 +141,9 @@
       "videos": 30,
       "rate": 10.0,
       "commission": "20%",
-      "status": ""
+      "status": "",
+      "resolved": true,
+      "note": "Handle is anitaGRACIEbeauty. No videos in the window; she does appear in the LIVE feed."
     }
   ],
   "live": [
@@ -131,7 +153,9 @@
       "hourly": null,
       "hours_cap": null,
       "commission": "30%",
-      "status": ""
+      "status": "",
+      "resolved": true,
+      "note": "No hourly rate on the tracker — commission only, so hours are reported but earned cannot be computed."
     },
     {
       "name": "Denise",
@@ -139,7 +163,8 @@
       "hourly": 20.0,
       "hours_cap": 80,
       "commission": "20%",
-      "status": "Active"
+      "status": "Active",
+      "resolved": true
     },
     {
       "name": "Tammy",
@@ -147,7 +172,8 @@
       "hourly": 10.0,
       "hours_cap": 80,
       "commission": "30%",
-      "status": "Active"
+      "status": "Active",
+      "resolved": true
     },
     {
       "name": "Tridereka",
@@ -156,7 +182,9 @@
       "hours_cap": 80,
       "commission": "30%",
       "status": "Active",
-      "notes": "Sheet says tridereka16 but that handle returns no data; myblackgirlroots returns her sessions (verified 10 Nov 2026, GMV matches)."
+      "resolved": true,
+      "handle_note": "Tracker says tridereka16, which returns no data. myblackgirlroots returns her sessions and its GMV matched the figure AJ quoted to the cent. Verified 10 Nov 2026. Fix the sheet.",
+      "note": "Hourly rate of $20 comes from AJ's instruction in chat, not the tracker — the sheet has no rate for her."
     },
     {
       "name": "Tyjae",
@@ -164,7 +192,9 @@
       "hourly": null,
       "hours_cap": null,
       "commission": "20% + 10% GMV live",
-      "status": ""
+      "status": "",
+      "resolved": true,
+      "note": "No hourly rate on the tracker — commission only."
     },
     {
       "name": "Krystle Lynch",
@@ -172,7 +202,8 @@
       "hourly": null,
       "hours_cap": null,
       "commission": "20% + 10% GMV live",
-      "status": "Inactive"
+      "status": "Inactive",
+      "resolved": true
     },
     {
       "name": "Charity",
@@ -180,7 +211,8 @@
       "hourly": null,
       "hours_cap": null,
       "commission": "30%",
-      "status": "Inactive"
+      "status": "Inactive",
+      "resolved": true
     },
     {
       "name": "Daisy — Marketing Acct",
@@ -188,8 +220,9 @@
       "hourly": null,
       "hours_cap": null,
       "commission": "20% + 10% GMV live",
-      "status": "Active",
-      "notes": "Lives + Videos. Flat $500 if reactivated. No TikTok handle on file — cannot be matched to API data until one is added."
+      "status": "Inactive",
+      "resolved": false,
+      "note": "Lives + Videos. Flat $500 if reactivated. No TikTok handle on the tracker, so she cannot be matched to API data. An earlier roster marked her Active; the tracker says Inactive."
     }
   ]
 }

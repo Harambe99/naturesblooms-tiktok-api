@@ -131,23 +131,37 @@ def build(videos: List[Dict[str, Any]], roster: Dict[str, Any],
 
     rows = []
     for r in roster["video"]:
-        h = r["handle"].lower()
+        # handle may be null when the account is unconfirmed (see roster notes).
+        # An unresolved creator is still reported, but never matched to API data —
+        # guessing an account would mean paying on another creator's numbers.
+        h = (r.get("handle") or "").lower()
         d = by.get(h, {"videos": [], "new": [], "gmv": 0.0, "views": 0,
-                       "units": 0, "orders": 0, "new_gmv": 0.0})
+                       "units": 0, "orders": 0, "new_gmv": 0.0}) if h else \
+            {"videos": [], "new": [], "gmv": 0.0, "views": 0,
+             "units": 0, "orders": 0, "new_gmv": 0.0}
         posted = len(d["new"])          # delivered IN the window — this is what we pay for
         active = len(d["videos"])       # anything still earning, however old
         inactive = is_inactive(r)
-        earned = 0.0 if inactive else posted * r["rate"]
-        committed = 0.0 if inactive else r["videos"] * r["rate"]
+        # _raw ignores Active/Inactive so the UI can re-apply a toggle client-side
+        # without a refetch. The server still returns the roster-correct figures.
+        earned_raw = round(posted * r["rate"], 2)
+        committed_raw = round(r["videos"] * r["rate"], 2)
+        earned = 0.0 if inactive else earned_raw
+        committed = 0.0 if inactive else committed_raw
         vids = sorted(d["videos"], key=lambda x: money(x.get("gmv")), reverse=True)
         rows.append({
-            "name": r["name"], "handle": r["handle"], "status": r.get("status", ""),
+            "name": r["name"], "handle": r.get("handle") or "",
+            "type": "video", "status": r.get("status", ""),
+            # resolved=false means the handle is unconfirmed, so every metric on this
+            # row is structurally zero and must not be read as "posted nothing".
+            "resolved": r.get("resolved", True),
             # 'owned' = brand account; TikTok's affiliate Creator List export reports
             # 0 videos / $0 GMV for these, so only shop video analytics counts them.
             "attribution": r.get("attribution", "affiliate"),
-            "note": r.get("note", ""),
+            "note": r.get("note", ""), "handle_note": r.get("handle_note", ""),
             "rate": r["rate"], "commission": r.get("commission", ""),
             "committed_videos": r["videos"], "committed_cost": committed,
+            "earned_raw": earned_raw, "committed_raw": committed_raw,
             "posted": posted, "active_videos": active,
             "new_gmv": round(d["new_gmv"], 2),
             "earned": round(earned, 2),
@@ -208,14 +222,20 @@ def build(videos: List[Dict[str, Any]], roster: Dict[str, Any],
         cap = r.get("hours_cap")
         hours = round(d["hours"], 2)
         paid_hours = min(hours, cap) if cap else hours
-        earned = 0.0 if (inactive or not hourly) else round(paid_hours * hourly, 2)
-        committed = 0.0 if (inactive or not hourly or not cap) else round(hourly * cap, 2)
+        earned_raw = round(paid_hours * hourly, 2) if hourly else 0.0
+        committed_raw = round(hourly * cap, 2) if (hourly and cap) else 0.0
+        earned = 0.0 if inactive else earned_raw
+        committed = 0.0 if inactive else committed_raw
         live_rows.append({
             "name": r["name"], "handle": r.get("handle") or "",
-            "status": r.get("status", ""), "hourly": hourly, "hours_cap": cap,
+            "type": "live", "status": r.get("status", ""),
+            "resolved": r.get("resolved", True),
+            "note": r.get("note", ""), "handle_note": r.get("handle_note", ""),
+            "hourly": hourly, "hours_cap": cap,
             "commission": r.get("commission", ""), "notes": r.get("notes", ""),
             "sessions": d["sessions"], "hours": hours, "paid_hours": round(paid_hours, 2),
             "earned": earned, "committed_cost": committed,
+            "earned_raw": earned_raw, "committed_raw": committed_raw,
             "gmv": round(d["gmv"], 2),
             "session_list": sorted(d["list"], key=lambda x: -x["gmv"]),
         })
@@ -233,7 +253,10 @@ def build(videos: List[Dict[str, Any]], roster: Dict[str, Any],
         "window": {"start": start, "end": end},
         "generated_at": int(time.time()),
         "totals": {
-            "roster_creators": len(rows),
+            "roster_creators": len(rows) + len(live_rows),
+            "video_creators": len(rows),
+            "live_creators_count": len(live_rows),
+            "unresolved": sum(1 for r in rows + live_rows if not r.get("resolved", True)),
             "videos_posted": sum(r["posted"] for r in rows),
             "videos_active": sum(r["active_videos"] for r in rows),
             "videos_committed": sum(r["committed_videos"] for r in rows if r["committed_cost"]),

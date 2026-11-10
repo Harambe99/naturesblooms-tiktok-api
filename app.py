@@ -577,70 +577,111 @@ async function load(){
   }catch(err){$('status').textContent='Failed: '+err}
   finally{$('go').disabled=false}
 }
+// ---- Active/Inactive overrides. Kept in localStorage so a toggle survives a
+// reload, and applied on top of whatever the roster says. Toggling never refetches.
+let OVR = JSON.parse(localStorage.getItem('nb_status_ovr') || '{}');
+const keyOf = c => c.handle ? c.type+':'+c.handle : c.type+':'+c.name;
+const effStatus = c => OVR[keyOf(c)] ?? (c.status || '');
+const isOff = c => effStatus(c) === 'Inactive';
+function setStatus(c, v){
+  const k = keyOf(c);
+  if (v === (c.status || '')) delete OVR[k]; else OVR[k] = v;
+  localStorage.setItem('nb_status_ovr', JSON.stringify(OVR));
+  render();
+}
+// All 23 creators, video and live, in one list.
+const everyone = () => [...(DATA.creators||[]), ...(DATA.live_creators||[])];
+
 function fillSelect(){
   const s=$('sel'); s.innerHTML='<option value="">— all creators —</option>';
-  DATA.creators.forEach(c=>{
-    const o=document.createElement('option'); o.value=c.handle;
-    o.textContent=`${c.name} (@${c.handle}) — ${c.posted}/${c.committed_videos} posts`;
+  everyone().forEach(c=>{
+    const o=document.createElement('option'); o.value=keyOf(c);
+    const tail = c.type==='live' ? `${(c.hours||0).toFixed(1)}h` : `${c.posted}/${c.committed_videos} posts`;
+    o.textContent=`${c.name} ${c.handle?'(@'+c.handle+')':'(no handle)'} — ${tail}`;
     s.appendChild(o);
   });
 }
 function statusPill(c){
-  if(c.status==='Inactive') return '<span class="pill no">inactive</span>';
+  if(!c.resolved) return '<span class="pill no" title="handle unconfirmed">unmatched</span>';
+  if(isOff(c)) return '<span class="pill no">inactive</span>';
+  if(c.type==='live') return c.sessions?'<span class="pill ok">live</span>':'<span class="pill mid">no lives</span>';
   if(c.posted===0) return '<span class="pill no">no posts</span>';
   if(c.pace>=0.9) return '<span class="pill ok">on pace</span>';
   if(c.pace>=0.4) return '<span class="pill mid">behind</span>';
   return '<span class="pill no">well behind</span>';
 }
+// Dropdown that toggles whether this creator's cost counts toward the totals.
+function toggleCell(c){
+  const v=effStatus(c), ovr=OVR[keyOf(c)]!==undefined;
+  return `<select class="tg" data-k="${keyOf(c)}" title="Toggle whether this creator's cost counts toward the totals">
+    <option value=""${v!=='Inactive'?' selected':''}>Active</option>
+    <option value="Inactive"${v==='Inactive'?' selected':''}>Inactive</option>
+  </select>${ovr?' <span class="pill mid" title="Differs from the tracker — toggled here">overridden</span>':''}`;
+}
 function render(){
   const pick=$('sel').value;
-  const t=DATA.totals;
+  const all=everyone(), on=all.filter(c=>!isOff(c));
+  const vidsOn=on.filter(c=>c.type==='video'), liveOn=on.filter(c=>c.type==='live');
+  // Totals respect the toggles, so they are recomputed here rather than taken raw.
+  const sum=(a,f)=>a.reduce((s,x)=>s+(f(x)||0),0);
+  const t={
+    videos_posted:sum(vidsOn,c=>c.posted), videos_active:sum(vidsOn,c=>c.active_videos),
+    videos_committed:sum(vidsOn,c=>c.committed_videos),
+    earned:sum(vidsOn,c=>c.earned_raw), committed:sum(vidsOn,c=>c.committed_raw),
+    roster_gmv:sum(vidsOn,c=>c.gmv), offroster_gmv:DATA.totals.offroster_gmv,
+    live_hours:sum(liveOn,c=>c.hours), live_earned:sum(liveOn,c=>c.earned_raw),
+    live_committed:sum(liveOn,c=>c.committed_raw), live_gmv:sum(liveOn,c=>c.gmv),
+  };
+  const offN=all.length-on.length, unres=all.filter(c=>!c.resolved).length;
   $('cards').innerHTML=[
     ['Posts delivered',`${n0(t.videos_posted)} <span style="font-size:.8rem;color:#5c6b70">/ ${n0(t.videos_committed)}</span>`],
     ['Videos still earning',n0(t.videos_active)],
-    ['Earned',m(t.earned)],['Committed',m(t.committed)],
-    ['Roster GMV',m(t.roster_gmv)],
-    ['Cost per $ GMV', t.roster_gmv? (t.earned/t.roster_gmv).toFixed(2):'—'],
+    ['Earned',m(t.earned+t.live_earned)],
+    ['Committed',m(t.committed+t.live_committed)],
+    ['Roster GMV',m(t.roster_gmv+t.live_gmv)],
+    ['Cost per $ GMV', (t.roster_gmv+t.live_gmv)? ((t.earned+t.live_earned)/(t.roster_gmv+t.live_gmv)).toFixed(2):'—'],
     ['Off-roster GMV',m(t.offroster_gmv)],
     ['LIVE hours',(t.live_hours||0).toFixed(1)],
     ['LIVE earned',m(t.live_earned)],
-    ['LIVE GMV',m(t.live_gmv)],
+    ['Counted',`${on.length} <span style="font-size:.8rem;color:#5c6b70">of ${all.length}</span>`],
   ].map(([k,v])=>`<div class="card"><h4>${k}</h4><div class="v">${v}</div></div>`).join('');
 
-  if(pick){ renderOne(DATA.creators.find(c=>c.handle===pick)); return; }
-  const rows=[...DATA.creators].sort((a,b)=>((a[SORT.k]??-1)-(b[SORT.k]??-1))*SORT.d);
-  $('body').innerHTML=`<div class="scroll"><table><thead><tr>
-    <th data-k="name">Creator</th><th data-k="posted" class="n">Posts<br><span style="font-weight:400;text-transform:none">in window</span></th>
-    <th class="n">Committed</th><th data-k="active_videos" class="n">Still<br><span style="font-weight:400;text-transform:none">earning</span></th><th data-k="pace" class="n">Pace</th>
+  if(pick){ renderOne(all.find(c=>keyOf(c)===pick)); return; }
+  const rows=[...all].sort((a,b)=>((a[SORT.k]??-1)-(b[SORT.k]??-1))*SORT.d);
+  const TYPE={video:'Video',live:'Lives'};
+  $('body').innerHTML=`
+    <div class="note">Showing <b>all ${all.length}</b> creators from the November tracker
+      — ${DATA.totals.video_creators} video, ${DATA.totals.live_creators_count} lives.
+      Use the <b>Counts?</b> dropdown to switch a creator on or off; totals above update
+      instantly and the choice is remembered on this browser.
+      ${offN?`<b>${offN}</b> currently excluded.`:''}
+      ${unres?` <b>${unres}</b> cannot be matched to TikTok data (handle unconfirmed) and read as zero — not as "posted nothing".`:''}</div>
+    <div class="scroll"><table><thead><tr>
+    <th data-k="name">Creator</th><th>Type</th>
+    <th data-k="posted" class="n">Posts<br><span style="font-weight:400;text-transform:none">in window</span></th>
+    <th class="n">Committed</th><th data-k="active_videos" class="n">Still<br><span style="font-weight:400;text-transform:none">earning</span></th>
+    <th data-k="hours" class="n">LIVE hrs</th>
     <th data-k="earned" class="n">Earned</th><th data-k="gmv" class="n">GMV</th>
-    <th data-k="views" class="n">Views</th><th data-k="units" class="n">Units</th>
-    <th data-k="roi" class="n">GMV / $1</th><th>Status</th></tr></thead><tbody>
-    ${rows.map(c=>`<tr data-h="${c.handle}">
-      <td><b>${c.name}</b>${c.attribution==='owned'?' <span class="pill mid" title="'+(c.note||'')+'">brand acct</span>':''}<br><span style="color:#5c6b70;font-size:.78rem">@${c.handle}</span></td>
-      <td class="n">${c.posted}</td><td class="n" style="color:#5c6b70">${c.committed_videos}</td>
-      <td class="n" style="color:#5c6b70">${c.active_videos}</td>
-      <td class="n">${c.pace==null?'—':(c.pace*100).toFixed(0)+'%'}</td>
-      <td class="n">${m(c.earned)}</td><td class="n">${m(c.gmv)}</td>
-      <td class="n">${n0(c.views)}</td><td class="n">${n0(c.units)}</td>
+    <th data-k="views" class="n">Views</th>
+    <th data-k="roi" class="n">GMV / $1</th><th>Status</th><th>Counts?</th></tr></thead><tbody>
+    ${rows.map(c=>`<tr data-h="${keyOf(c)}" style="${isOff(c)?'opacity:.45':''}">
+      <td><b>${c.name}</b>${c.attribution==='owned'?' <span class="pill mid" title="'+(c.note||'').replace(/"/g,'&quot;')+'">brand acct</span>':''}
+        <br><span style="color:#5c6b70;font-size:.78rem">${c.handle?'@'+c.handle:'no handle on file'}</span>
+        ${c.handle_note?`<br><span style="color:#9a6400;font-size:.74rem">handle corrected — see detail</span>`:''}</td>
+      <td style="font-size:.8rem;color:#5c6b70">${TYPE[c.type]||c.type}</td>
+      <td class="n">${c.type==='live'?'—':c.posted}</td>
+      <td class="n" style="color:#5c6b70">${c.type==='live'?(c.hours_cap?c.hours_cap+'h':'—'):c.committed_videos}</td>
+      <td class="n" style="color:#5c6b70">${c.type==='live'?'—':c.active_videos}</td>
+      <td class="n">${c.type==='live'?(c.hours||0).toFixed(2):'—'}</td>
+      <td class="n">${isOff(c)?'<span style="color:#9aa">—</span>':m(c.earned_raw)}</td>
+      <td class="n">${m(c.gmv)}</td>
+      <td class="n">${c.type==='live'?'—':n0(c.views)}</td>
       <td class="n">${c.roi==null?'—':c.roi.toFixed(2)}</td>
-      <td>${statusPill(c)}</td></tr>`).join('')}
+      <td>${statusPill(c)}</td>
+      <td>${toggleCell(c)}</td></tr>`).join('')}
     </tbody></table></div>
     <div class="note"><b>How posts are counted.</b> ${DATA.basis_note}</div>
-    <h2>LIVE creators</h2>
-    <div class="scroll"><table><thead><tr><th>Creator</th><th class="n">Sessions</th>
-      <th class="n">Hours</th><th class="n">Cap</th><th class="n">Hourly</th>
-      <th class="n">Earned</th><th class="n">Committed</th><th class="n">LIVE GMV</th>
-      <th>Commission</th><th>Status</th></tr></thead><tbody>
-      ${(DATA.live_creators||[]).map(c=>`<tr>
-        <td><b>${c.name}</b><br><span style="color:#5c6b70;font-size:.78rem">${c.handle?'@'+c.handle:'no handle on file'}</span>
-          ${c.notes?`<br><span style="color:#9a6400;font-size:.74rem">${c.notes}</span>`:''}</td>
-        <td class="n">${c.sessions}</td><td class="n">${c.hours.toFixed(2)}</td>
-        <td class="n">${c.hours_cap??'—'}</td><td class="n">${c.hourly==null?'—':m(c.hourly)}</td>
-        <td class="n">${m(c.earned)}</td><td class="n">${m(c.committed_cost)}</td>
-        <td class="n">${m(c.gmv)}</td><td>${c.commission||'—'}</td>
-        <td>${c.status==='Inactive'?'<span class="pill no">inactive</span>':(c.sessions?'<span class="pill ok">live</span>':'<span class="pill mid">no lives</span>')}</td>
-      </tr>`).join('')}</tbody></table></div>
-    <div class="note">${DATA.live_note}</div>
+    <div class="note"><b>LIVE hours.</b> ${DATA.live_note}</div>
     <h2>Off-roster creators driving GMV</h2>
     <div class="scroll"><table><thead><tr><th>Handle</th><th class="n">Videos</th>
       <th class="n">GMV</th><th class="n">Views</th><th class="n">Units</th></tr></thead><tbody>
@@ -655,22 +696,44 @@ function render(){
       </tbody></table></div>`;
   document.querySelectorAll('th[data-k]').forEach(th=>th.onclick=()=>{
     const k=th.dataset.k; SORT = SORT.k===k?{k,d:-SORT.d}:{k,d:-1}; render();});
+  // the toggle must not also open the creator detail, so stop the row click
+  document.querySelectorAll('select.tg').forEach(s=>{
+    s.onclick=e=>e.stopPropagation();
+    s.onchange=e=>{e.stopPropagation();
+      setStatus(everyone().find(c=>keyOf(c)===s.dataset.k), s.value);};
+  });
   document.querySelectorAll('tbody tr[data-h]').forEach(tr=>tr.onclick=()=>{
     $('sel').value=tr.dataset.h; render();});
 }
 function renderOne(c){
   if(!c){$('body').innerHTML='';return;}
+  const cards = c.type==='live'
+    ? [['LIVE hours',(c.hours||0).toFixed(2)],['Sessions',n0(c.sessions)],
+       ['Hourly',c.hourly==null?'—':m(c.hourly)],['Hours cap',c.hours_cap??'—'],
+       ['Paid hours',(c.paid_hours||0).toFixed(2)],['Earned',m(c.earned_raw)],
+       ['Committed',m(c.committed_raw)],['LIVE GMV',m(c.gmv)]]
+    : [['Posts',`${c.posted} / ${c.committed_videos}`],['Rate',m(c.rate)],
+       ['Earned',m(c.earned_raw)],['Committed',m(c.committed_raw)],
+       ['GMV',m(c.gmv)],['GMV per video',c.gmv_per_video==null?'—':m(c.gmv_per_video)],
+       ['GMV per $1 paid',c.roi==null?'—':c.roi.toFixed(2)],['Views',n0(c.views)]];
   $('body').innerHTML=`
-   <h2>${c.name} &middot; @${c.handle} ${statusPill(c)}</h2>
+   <h2>${c.name} &middot; ${c.handle?'@'+c.handle:'<i>no handle on file</i>'} ${statusPill(c)}</h2>
+   <p class="sub">Commission ${c.commission||'—'} &middot; counts toward totals:
+      ${toggleCell(c)}</p>
+   ${c.handle_note?`<p class="sub" style="border-left:3px solid #9a6400;padding-left:.6rem"><b>Handle:</b> ${c.handle_note}</p>`:''}
    ${c.note?`<p class="sub" style="border-left:3px solid #c9a227;padding-left:.6rem">${c.note}</p>`:''}
    <div class="cards">
-     ${[['Posts',`${c.posted} / ${c.committed_videos}`],['Rate',m(c.rate)],
-        ['Earned',m(c.earned)],['Committed',m(c.committed_cost)],
-        ['GMV',m(c.gmv)],['GMV per video',c.gmv_per_video==null?'—':m(c.gmv_per_video)],
-        ['GMV per $1 paid',c.roi==null?'—':c.roi.toFixed(2)],['Views',n0(c.views)]]
-       .map(([k,v])=>`<div class="card"><h4>${k}</h4><div class="v">${v}</div></div>`).join('')}
+     ${cards.map(([k,v])=>`<div class="card"><h4>${k}</h4><div class="v">${v}</div></div>`).join('')}
    </div>
-   ${c.videos.length?`<div class="scroll"><table><thead><tr><th>Posted</th><th></th><th>Video</th>
+   ${c.type==='live'?(
+     (c.session_list||[]).length?`<div class="scroll"><table><thead><tr><th>Started</th>
+       <th class="n">Hours</th><th class="n">GMV</th><th>Title</th></tr></thead><tbody>
+       ${c.session_list.map(s=>`<tr><td style="white-space:nowrap">${s.start?new Date(s.start*1000).toISOString().slice(0,16).replace('T',' '):'—'}</td>
+         <td class="n">${s.hours.toFixed(2)}</td><td class="n">${m(s.gmv)}</td>
+         <td>${(s.title||'').replace(/</g,'&lt;')||'<i>no title</i>'}</td></tr>`).join('')}
+       </tbody></table></div>`:'<p class="sub">No LIVE sessions in this window.</p>'
+   ):(
+   (c.videos||[]).length?`<div class="scroll"><table><thead><tr><th>Posted</th><th></th><th>Video</th>
      <th class="n">Views</th><th class="n">GMV</th><th class="n">Units</th><th class="n">CTR</th>
      <th>Link</th></tr></thead><tbody>
      ${c.videos.map(v=>`<tr><td style="white-space:nowrap">${(v.posted||'').slice(0,10)}</td>
@@ -679,7 +742,9 @@ function renderOne(c){
        <td class="n">${n0(v.views)}</td><td class="n">${m(v.gmv)}</td>
        <td class="n">${v.units}</td><td class="n">${v.ctr??'—'}</td>
        <td><a href="${v.url}" target="_blank" rel="noopener">open</a></td></tr>`).join('')}
-     </tbody></table></div>`:'<p class="sub">No videos in this window.</p>'}`;
+     </tbody></table></div>`:`<p class="sub">${c.resolved?'No videos in this window.':'Handle unconfirmed — there is nothing to match against TikTok, so this reads as zero rather than as "posted nothing".'}</p>`)}`;
+  document.querySelectorAll('select.tg').forEach(s=>
+    s.onchange=()=>setStatus(c, s.value));
 }
 $('go').onclick=load; $('sel').onchange=render;
 ['s','e'].forEach(i=>$(i).onchange=()=>{if(DATA)load()});
