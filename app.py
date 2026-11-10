@@ -458,17 +458,44 @@ async def api_creators(admin: str = Query(...),
     return C.build(vids, C.load_roster(), start, end, lives=lives)
 
 
+# TikTok's creator/video exports lag ~2 days, and the analytics feed behind this
+# tracker settles on the same delay. Anything newer than this reads as a partial
+# day and under-reports posts, so the picker refuses to go past it.
+DATA_LAG_DAYS = 2
+
+
+def last_complete_day():
+    """Most recent date whose creator data is fully settled (today - lag)."""
+    import datetime as _dt
+    return _dt.date.today() - _dt.timedelta(days=DATA_LAG_DAYS)
+
+
 @app.get("/creators", response_class=HTMLResponse)
 async def creators_page(admin: str = Query(""), start: str = "", end: str = ""):
     """Creator retainer tracker. Pick a creator from the dropdown."""
     import datetime as _dt
-    if not end:
-        end = _dt.date.today().isoformat()
-    if not start:
-        start = (_dt.date.fromisoformat(end) - _dt.timedelta(days=7)).isoformat()
-    return HTMLResponse(TRACKER_HTML.replace("__START__", start)
-                                    .replace("__END__", end)
-                                    .replace("__ADMIN__", admin))
+    last = last_complete_day()
+    max_end = last + _dt.timedelta(days=1)          # end is exclusive
+
+    def clamp(s, default):
+        try:
+            d = _dt.date.fromisoformat(s)
+        except (TypeError, ValueError):
+            return default
+        return min(d, max_end)
+
+    end_d = clamp(end, max_end)
+    start_d = clamp(start, end_d - _dt.timedelta(days=7))
+    if start_d >= end_d:
+        start_d = end_d - _dt.timedelta(days=7)
+
+    return HTMLResponse(TRACKER_HTML
+                        .replace("__START__", start_d.isoformat())
+                        .replace("__END__", end_d.isoformat())
+                        .replace("__MAXSTART__", last.isoformat())
+                        .replace("__MAXEND__", max_end.isoformat())
+                        .replace("__LASTDAY__", last.strftime("%-d %b %Y"))
+                        .replace("__ADMIN__", admin))
 
 
 TRACKER_HTML = """
@@ -512,12 +539,14 @@ TRACKER_HTML = """
 </style>
 <div class="wrap">
   <h1>Nature&rsquo;s Blooms &middot; creator tracker</h1>
-  <p class="sub">Retainer performance, live from TikTok Shop video analytics.</p>
+  <p class="sub">Retainer performance, live from TikTok Shop video analytics.
+     TikTok data settles ~2 days late, so the window stops at <b>__LASTDAY__</b> —
+     picking anything newer would under-count posts.</p>
 
   <div class="bar">
     <div><label>admin token</label><input id="adm" value="__ADMIN__" size="30" placeholder="paste token"></div>
-    <div><label>from</label><input id="s" type="date" value="__START__"></div>
-    <div><label>to (exclusive)</label><input id="e" type="date" value="__END__"></div>
+    <div><label>from</label><input id="s" type="date" value="__START__" max="__MAXSTART__"></div>
+    <div><label>to (exclusive)</label><input id="e" type="date" value="__END__" max="__MAXEND__"></div>
     <div><button id="go">Load</button></div>
     <div style="flex:1"></div>
     <div><label>creator</label><select id="sel"><option value="">— all creators —</option></select></div>
@@ -535,6 +564,10 @@ const n0=n=>(n||0).toLocaleString();
 
 async function load(){
   const a=$('adm').value.trim(); if(!a){$('status').textContent='Enter the admin token.';return;}
+  // belt-and-braces: the max= attributes stop the picker, this stops a typed date
+  const MAXE='__MAXEND__';
+  if($('e').value>MAXE){$('e').value=MAXE;}
+  if($('s').value>='__MAXEND__'){$('status').textContent='Start must be before '+MAXE+' — TikTok data is not settled yet.';return;}
   $('go').disabled=true; $('status').textContent='Loading from TikTok…';
   try{
     const r=await fetch(`/api/creators?admin=${encodeURIComponent(a)}&start=${$('s').value}&end=${$('e').value}`);
@@ -583,7 +616,7 @@ function render(){
     <th data-k="views" class="n">Views</th><th data-k="units" class="n">Units</th>
     <th data-k="roi" class="n">GMV / $1</th><th>Status</th></tr></thead><tbody>
     ${rows.map(c=>`<tr data-h="${c.handle}">
-      <td><b>${c.name}</b><br><span style="color:#5c6b70;font-size:.78rem">@${c.handle}</span></td>
+      <td><b>${c.name}</b>${c.attribution==='owned'?' <span class="pill mid" title="'+(c.note||'')+'">brand acct</span>':''}<br><span style="color:#5c6b70;font-size:.78rem">@${c.handle}</span></td>
       <td class="n">${c.posted}</td><td class="n" style="color:#5c6b70">${c.committed_videos}</td>
       <td class="n" style="color:#5c6b70">${c.active_videos}</td>
       <td class="n">${c.pace==null?'—':(c.pace*100).toFixed(0)+'%'}</td>
@@ -629,6 +662,7 @@ function renderOne(c){
   if(!c){$('body').innerHTML='';return;}
   $('body').innerHTML=`
    <h2>${c.name} &middot; @${c.handle} ${statusPill(c)}</h2>
+   ${c.note?`<p class="sub" style="border-left:3px solid #c9a227;padding-left:.6rem">${c.note}</p>`:''}
    <div class="cards">
      ${[['Posts',`${c.posted} / ${c.committed_videos}`],['Rate',m(c.rate)],
         ['Earned',m(c.earned)],['Committed',m(c.committed_cost)],

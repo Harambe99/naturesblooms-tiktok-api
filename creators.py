@@ -142,6 +142,10 @@ def build(videos: List[Dict[str, Any]], roster: Dict[str, Any],
         vids = sorted(d["videos"], key=lambda x: money(x.get("gmv")), reverse=True)
         rows.append({
             "name": r["name"], "handle": r["handle"], "status": r.get("status", ""),
+            # 'owned' = brand account; TikTok's affiliate Creator List export reports
+            # 0 videos / $0 GMV for these, so only shop video analytics counts them.
+            "attribution": r.get("attribution", "affiliate"),
+            "note": r.get("note", ""),
             "rate": r["rate"], "commission": r.get("commission", ""),
             "committed_videos": r["videos"], "committed_cost": committed,
             "posted": posted, "active_videos": active,

@@ -1,32 +1,195 @@
 {
-  "_comment": "Nature's Blooms retainer roster, rebuilt 10 Nov 2026 from AJ's November tracker. Edit rates here; the tracker reads this file. Only status 'Inactive' excludes a creator from earned/committed — a blank status still counts.",
+  "_comment": "Nature's Blooms retainer roster, rebuilt 10 Nov 2026 from AJ's November tracker. Edit rates here; the tracker reads this file. Only status 'Inactive' excludes a creator from earned/committed — a blank status still counts. Creators with attribution='owned' are brand accounts: the affiliate Creator List export cannot see them, so only shop video analytics counts their posts.",
   "video": [
-    {"name": "Wellness Wise — Marketing Acct", "handle": "wellnesswise222",     "videos": 30, "rate": 100.00, "commission": "20%", "status": "Active"},
-    {"name": "Shariya Wise",                   "handle": "shariyawise",         "videos": 4,  "rate": 250.00, "commission": "15%", "status": "Active"},
-    {"name": "Qyecha Tierra",                  "handle": "qyechatierra",        "videos": 15, "rate": 33.33,  "commission": "20%", "status": "Active"},
-    {"name": "Laquavia Conley",                "handle": "leobaby75",           "videos": 20, "rate": 33.33,  "commission": "20%", "status": "Active"},
-    {"name": "Amari Sparks",                   "handle": "marismyxx",           "videos": 60, "rate": 13.33,  "commission": "20%", "status": "Active"},
-    {"name": "Dr. Young",                      "handle": "docyungmom",          "videos": 30, "rate": 11.67,  "commission": "20%", "status": ""},
-    {"name": "Candace Turner",                 "handle": "candacereviews",      "videos": 30, "rate": 15.00,  "commission": "20%", "status": ""},
-    {"name": "Whitney",                        "handle": "walkerbyfaith_",      "videos": 30, "rate": 10.00,  "commission": "20%", "status": ""},
-    {"name": "Khaylla Flames",                 "handle": "kayylaflame",         "videos": 30, "rate": 20.00,  "commission": "20%", "status": "Inactive"},
-    {"name": "Kaylee",                         "handle": "juicegyalprncess",    "videos": 7,  "rate": 175.00, "commission": "20%", "status": "Active"},
-    {"name": "Tamika Burton",                  "handle": "missredgal",          "videos": 10, "rate": 50.00,  "commission": "10%", "status": ""},
-    {"name": "Sheree Brown",                   "handle": "itssimplysheree_",    "videos": 30, "rate": 10.00,  "commission": "20%", "status": ""},
-    {"name": "Senovia Brasley",                "handle": "gardeningwithmsnovi", "videos": 15, "rate": 20.00,  "commission": "20%", "status": ""},
-    {"name": "Ash",                            "handle": "lifeintheashlane",    "videos": 4,  "rate": 175.00, "commission": "20%", "status": ""},
-    {"name": "Anita Grace",                    "handle": "anitagraciebeauty",   "videos": 30, "rate": 10.00,  "commission": "20%", "status": ""}
+    {
+      "name": "Wellness Wise — Marketing Acct",
+      "handle": "wellnesswise222",
+      "videos": 30,
+      "rate": 100.0,
+      "commission": "20%",
+      "status": "Active",
+      "attribution": "owned",
+      "note": "Brand-owned marketing account. Her videos are not affiliate-shoppable, so TikTok's Creator List export reports 0 videos and $0 GMV for her. Posts and GMV here come from shop video analytics, which does see them. Do not reconcile this row against the affiliate export."
+    },
+    {
+      "name": "Shariya Wise",
+      "handle": "shariyawise",
+      "videos": 4,
+      "rate": 250.0,
+      "commission": "15%",
+      "status": "Active"
+    },
+    {
+      "name": "Qyecha Tierra",
+      "handle": "qyechatierra",
+      "videos": 15,
+      "rate": 33.33,
+      "commission": "20%",
+      "status": "Active"
+    },
+    {
+      "name": "Laquavia Conley",
+      "handle": "leobaby75",
+      "videos": 20,
+      "rate": 33.33,
+      "commission": "20%",
+      "status": "Active"
+    },
+    {
+      "name": "Amari Sparks",
+      "handle": "marismyxx",
+      "videos": 60,
+      "rate": 13.33,
+      "commission": "20%",
+      "status": "Active"
+    },
+    {
+      "name": "Dr. Young",
+      "handle": "docyungmom",
+      "videos": 30,
+      "rate": 11.67,
+      "commission": "20%",
+      "status": ""
+    },
+    {
+      "name": "Candace Turner",
+      "handle": "candacereviews",
+      "videos": 30,
+      "rate": 15.0,
+      "commission": "20%",
+      "status": ""
+    },
+    {
+      "name": "Whitney",
+      "handle": "walkerbyfaith_",
+      "videos": 30,
+      "rate": 10.0,
+      "commission": "20%",
+      "status": ""
+    },
+    {
+      "name": "Khaylla Flames",
+      "handle": "kayylaflame",
+      "videos": 30,
+      "rate": 20.0,
+      "commission": "20%",
+      "status": "Inactive"
+    },
+    {
+      "name": "Kaylee",
+      "handle": "juicegyalprncess",
+      "videos": 7,
+      "rate": 175.0,
+      "commission": "20%",
+      "status": "Active"
+    },
+    {
+      "name": "Tamika Burton",
+      "handle": "missredgal",
+      "videos": 10,
+      "rate": 50.0,
+      "commission": "10%",
+      "status": ""
+    },
+    {
+      "name": "Sheree Brown",
+      "handle": "itssimplysheree_",
+      "videos": 30,
+      "rate": 10.0,
+      "commission": "20%",
+      "status": ""
+    },
+    {
+      "name": "Senovia Brasley",
+      "handle": "gardeningwithmsnovi",
+      "videos": 15,
+      "rate": 20.0,
+      "commission": "20%",
+      "status": ""
+    },
+    {
+      "name": "Ash",
+      "handle": "lifeintheashlane",
+      "videos": 4,
+      "rate": 175.0,
+      "commission": "20%",
+      "status": ""
+    },
+    {
+      "name": "Anita Grace",
+      "handle": "anitagraciebeauty",
+      "videos": 30,
+      "rate": 10.0,
+      "commission": "20%",
+      "status": ""
+    }
   ],
   "live": [
-    {"name": "Netti",                   "handle": "nettinonstop",        "hourly": null,  "hours_cap": null, "commission": "30%",                 "status": ""},
-    {"name": "Denise",                  "handle": "totaldesignfromatoz", "hourly": 20.00, "hours_cap": 80,   "commission": "20%",                 "status": "Active"},
-    {"name": "Tammy",                   "handle": "journey2wellnessnow", "hourly": 10.00, "hours_cap": 80,   "commission": "30%",                 "status": "Active"},
-    {"name": "Tridereka",               "handle": "myblackgirlroots",    "hourly": 20.00, "hours_cap": 80,   "commission": "30%",                 "status": "Active",
-     "notes": "Sheet says tridereka16 but that handle returns no data; myblackgirlroots returns her sessions (verified 10 Nov 2026, GMV matches)."},
-    {"name": "Tyjae",                   "handle": "eajyt",               "hourly": null,  "hours_cap": null, "commission": "20% + 10% GMV live",  "status": ""},
-    {"name": "Krystle Lynch",           "handle": "krystlelynch",        "hourly": null,  "hours_cap": null, "commission": "20% + 10% GMV live",  "status": "Inactive"},
-    {"name": "Charity",                 "handle": "charityjthecreator",  "hourly": null,  "hours_cap": null, "commission": "30%",                 "status": "Inactive"},
-    {"name": "Daisy — Marketing Acct",  "handle": null,                  "hourly": null,  "hours_cap": null, "commission": "20% + 10% GMV live",  "status": "Active",
-     "notes": "Lives + Videos. Flat $500 if reactivated. No TikTok handle on file — cannot be matched to API data until one is added."}
+    {
+      "name": "Netti",
+      "handle": "nettinonstop",
+      "hourly": null,
+      "hours_cap": null,
+      "commission": "30%",
+      "status": ""
+    },
+    {
+      "name": "Denise",
+      "handle": "totaldesignfromatoz",
+      "hourly": 20.0,
+      "hours_cap": 80,
+      "commission": "20%",
+      "status": "Active"
+    },
+    {
+      "name": "Tammy",
+      "handle": "journey2wellnessnow",
+      "hourly": 10.0,
+      "hours_cap": 80,
+      "commission": "30%",
+      "status": "Active"
+    },
+    {
+      "name": "Tridereka",
+      "handle": "myblackgirlroots",
+      "hourly": 20.0,
+      "hours_cap": 80,
+      "commission": "30%",
+      "status": "Active",
+      "notes": "Sheet says tridereka16 but that handle returns no data; myblackgirlroots returns her sessions (verified 10 Nov 2026, GMV matches)."
+    },
+    {
+      "name": "Tyjae",
+      "handle": "eajyt",
+      "hourly": null,
+      "hours_cap": null,
+      "commission": "20% + 10% GMV live",
+      "status": ""
+    },
+    {
+      "name": "Krystle Lynch",
+      "handle": "krystlelynch",
+      "hourly": null,
+      "hours_cap": null,
+      "commission": "20% + 10% GMV live",
+      "status": "Inactive"
+    },
+    {
+      "name": "Charity",
+      "handle": "charityjthecreator",
+      "hourly": null,
+      "hours_cap": null,
+      "commission": "30%",
+      "status": "Inactive"
+    },
+    {
+      "name": "Daisy — Marketing Acct",
+      "handle": null,
+      "hourly": null,
+      "hours_cap": null,
+      "commission": "20% + 10% GMV live",
+      "status": "Active",
+      "notes": "Lives + Videos. Flat $500 if reactivated. No TikTok handle on file — cannot be matched to API data until one is added."
+    }
   ]
 }
