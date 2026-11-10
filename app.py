@@ -451,8 +451,11 @@ async def api_creators(admin: str = Query(...),
                        end: str = Query(..., description="YYYY-MM-DD, exclusive")):
     require_admin(admin)
     import creators as C
-    vids = await C.fetch_videos(tiktok_get, start, end)
-    return C.build(vids, C.load_roster(), start, end)
+    vids, lives = await asyncio.gather(
+        C.fetch_videos(tiktok_get, start, end),
+        C.fetch_lives(tiktok_get, start, end),
+    )
+    return C.build(vids, C.load_roster(), start, end, lives=lives)
 
 
 @app.get("/creators", response_class=HTMLResponse)
@@ -566,6 +569,9 @@ function render(){
     ['Roster GMV',m(t.roster_gmv)],
     ['Cost per $ GMV', t.roster_gmv? (t.earned/t.roster_gmv).toFixed(2):'—'],
     ['Off-roster GMV',m(t.offroster_gmv)],
+    ['LIVE hours',(t.live_hours||0).toFixed(1)],
+    ['LIVE earned',m(t.live_earned)],
+    ['LIVE GMV',m(t.live_gmv)],
   ].map(([k,v])=>`<div class="card"><h4>${k}</h4><div class="v">${v}</div></div>`).join('');
 
   if(pick){ renderOne(DATA.creators.find(c=>c.handle===pick)); return; }
@@ -587,13 +593,33 @@ function render(){
       <td>${statusPill(c)}</td></tr>`).join('')}
     </tbody></table></div>
     <div class="note"><b>How posts are counted.</b> ${DATA.basis_note}</div>
+    <h2>LIVE creators</h2>
+    <div class="scroll"><table><thead><tr><th>Creator</th><th class="n">Sessions</th>
+      <th class="n">Hours</th><th class="n">Cap</th><th class="n">Hourly</th>
+      <th class="n">Earned</th><th class="n">Committed</th><th class="n">LIVE GMV</th>
+      <th>Commission</th><th>Status</th></tr></thead><tbody>
+      ${(DATA.live_creators||[]).map(c=>`<tr>
+        <td><b>${c.name}</b><br><span style="color:#5c6b70;font-size:.78rem">${c.handle?'@'+c.handle:'no handle on file'}</span>
+          ${c.notes?`<br><span style="color:#9a6400;font-size:.74rem">${c.notes}</span>`:''}</td>
+        <td class="n">${c.sessions}</td><td class="n">${c.hours.toFixed(2)}</td>
+        <td class="n">${c.hours_cap??'—'}</td><td class="n">${c.hourly==null?'—':m(c.hourly)}</td>
+        <td class="n">${m(c.earned)}</td><td class="n">${m(c.committed_cost)}</td>
+        <td class="n">${m(c.gmv)}</td><td>${c.commission||'—'}</td>
+        <td>${c.status==='Inactive'?'<span class="pill no">inactive</span>':(c.sessions?'<span class="pill ok">live</span>':'<span class="pill mid">no lives</span>')}</td>
+      </tr>`).join('')}</tbody></table></div>
     <div class="note">${DATA.live_note}</div>
     <h2>Off-roster creators driving GMV</h2>
     <div class="scroll"><table><thead><tr><th>Handle</th><th class="n">Videos</th>
       <th class="n">GMV</th><th class="n">Views</th><th class="n">Units</th></tr></thead><tbody>
       ${DATA.off_roster.map(o=>`<tr><td>@${o.handle}</td><td class="n">${o.videos}</td>
         <td class="n">${m(o.gmv)}</td><td class="n">${n0(o.views)}</td>
-        <td class="n">${n0(o.units)}</td></tr>`).join('')}</tbody></table></div>`;
+        <td class="n">${n0(o.units)}</td></tr>`).join('')}</tbody></table></div>
+    <h2>Off-roster LIVE sellers</h2>
+    <div class="scroll"><table><thead><tr><th>Handle</th><th class="n">Sessions</th>
+      <th class="n">Hours</th><th class="n">GMV</th></tr></thead><tbody>
+      ${(DATA.live_off_roster||[]).map(o=>`<tr><td>@${o.handle}</td><td class="n">${o.sessions}</td>
+        <td class="n">${o.hours.toFixed(2)}</td><td class="n">${m(o.gmv)}</td></tr>`).join('')}
+      </tbody></table></div>`;
   document.querySelectorAll('th[data-k]').forEach(th=>th.onclick=()=>{
     const k=th.dataset.k; SORT = SORT.k===k?{k,d:-SORT.d}:{k,d:-1}; render();});
   document.querySelectorAll('tbody tr[data-h]').forEach(tr=>tr.onclick=()=>{
