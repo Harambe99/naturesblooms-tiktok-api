@@ -356,12 +356,20 @@ async def settlements(
     start: int = Query(...),
     end: int = Query(...),
     page_size: int = 50,
+    sort_field: str = "statement_time",
+    sort_order: str = "DESC",
 ):
     """The settlement feed — this is what the P&L is built on."""
     require_admin(admin)
     return await tiktok_get(
         "/finance/202309/statements",
-        {"page_size": page_size, "statement_time_ge": start, "statement_time_lt": end},
+        {
+            "page_size": page_size,
+            "statement_time_ge": start,
+            "statement_time_lt": end,
+            "sort_field": sort_field,
+            "sort_order": sort_order,
+        },
     )
 
 
