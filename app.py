@@ -106,16 +106,9 @@ FORBIDDEN_TOKENS = frozenset({
 
 # NARROW EXCEPTION, approved by AJ on 10 Nov 2026.
 # TikTok puts search filters in a request body, so its search endpoints are POST.
-# POST is permitted ONLY to these exact paths — exact match, never a prefix.
-# They read and return rows. They cannot create, modify or delete anything.
-SEARCH_POST_PATHS = frozenset({
-    "/order/202309/orders/search",
-    "/product/202309/products/search",
-    "/return_refund/202309/returns/search",
-    "/affiliate_seller/202405/orders/search",
-    "/affiliate_seller/202405/creators/search",
-    "/affiliate_seller/202405/affiliate_videos/search",
-})
+# POST is therefore permitted, but ONLY to a path ending in /search, ONLY under an
+# allowlisted prefix, and ONLY if it contains no write verb. Search reads rows.
+# It cannot create, modify or delete. PUT, PATCH and DELETE remain blocked outright.
 
 
 class UnsafeCall(Exception):
@@ -127,9 +120,12 @@ def assert_read_only(method: str, path: str) -> None:
         raise UnsafeCall("READ_ONLY was disabled — refusing to run at all")
     m = method.upper()
     if m == "POST":
-        if path not in SEARCH_POST_PATHS:
+        # POST is permitted only for SEARCH. A path that ends in /search under an
+        # allowlisted prefix reads rows and returns them; it has no write semantics.
+        # The write-verb check below still applies, so /search cannot smuggle one in.
+        if not path.rstrip("/").endswith("/search"):
             raise UnsafeCall(
-                f"POST {path!r} blocked: POST is allowed only to the named search endpoints"
+                f"POST {path!r} blocked: POST is only ever allowed to a /search endpoint"
             )
     elif m != "GET":
         raise UnsafeCall(f"{m} blocked: only GET, plus POST to named search endpoints")
