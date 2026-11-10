@@ -444,6 +444,186 @@ async def probe(admin: str = Query(...), path: str = Query(...), method: str = "
     return await tiktok_get(path, ex)
 
 
+# ---------------------------------------------------------------- creator tracker
+@app.get("/api/creators")
+async def api_creators(admin: str = Query(...),
+                       start: str = Query(..., description="YYYY-MM-DD"),
+                       end: str = Query(..., description="YYYY-MM-DD, exclusive")):
+    require_admin(admin)
+    import creators as C
+    vids = await C.fetch_videos(tiktok_get, start, end)
+    return C.build(vids, C.load_roster(), start, end)
+
+
+@app.get("/creators", response_class=HTMLResponse)
+async def creators_page(admin: str = Query(""), start: str = "", end: str = ""):
+    """Creator retainer tracker. Pick a creator from the dropdown."""
+    import datetime as _dt
+    if not end:
+        end = _dt.date.today().isoformat()
+    if not start:
+        start = (_dt.date.fromisoformat(end) - _dt.timedelta(days=7)).isoformat()
+    return HTMLResponse(TRACKER_HTML.replace("__START__", start)
+                                    .replace("__END__", end)
+                                    .replace("__ADMIN__", admin))
+
+
+TRACKER_HTML = """
+<title>NB creator tracker</title>
+<style>
+ :root{--ink:#15202b;--mut:#5c6b70;--line:#e3e8ee;--acc:#0e6e5e;--bg:#f7f9fa;
+       --good:#2f7d3c;--warn:#9a6400;--bad:#a32c2c}
+ *{box-sizing:border-box}
+ body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;margin:0;color:var(--ink);background:#fff}
+ .wrap{max-width:70rem;margin:0 auto;padding:2rem 1.5rem 5rem}
+ h1{font-size:1.45rem;margin:0 0 .2rem}
+ .sub{color:var(--mut);font-size:.9rem;margin:0 0 1.5rem}
+ .bar{display:flex;gap:.6rem;flex-wrap:wrap;align-items:end;background:var(--bg);
+      border:1px solid var(--line);border-radius:4px;padding:.9rem 1rem;margin-bottom:1.5rem}
+ label{display:block;font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;
+       color:var(--mut);margin-bottom:.25rem}
+ input,select,button{font:inherit;padding:.45rem .6rem;border:1px solid #c9d2da;
+       border-radius:3px;background:#fff}
+ select{min-width:17rem}
+ button{background:var(--acc);color:#fff;border-color:var(--acc);cursor:pointer}
+ button:disabled{opacity:.5;cursor:default}
+ .cards{display:grid;gap:.7rem;grid-template-columns:repeat(auto-fit,minmax(9rem,1fr));margin-bottom:1.5rem}
+ .card{border:1px solid var(--line);border-radius:4px;padding:.75rem .9rem;background:var(--bg)}
+ .card h4{margin:0 0 .25rem;font-size:.68rem;text-transform:uppercase;letter-spacing:.08em;
+          color:var(--mut);font-weight:600}
+ .card .v{font-size:1.3rem;font-variant-numeric:tabular-nums}
+ table{border-collapse:collapse;width:100%;font-size:.86rem}
+ th,td{text-align:left;padding:.45rem .6rem;border-bottom:1px solid var(--line);vertical-align:top}
+ th{font-size:.66rem;text-transform:uppercase;letter-spacing:.07em;color:var(--mut);
+    border-bottom:1px solid #9aa7b0;cursor:pointer;white-space:nowrap}
+ td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+ tr.sel{background:#e3eeeb}
+ tbody tr:hover{background:#f2f6f9}
+ .pill{font-size:.66rem;padding:.1rem .4rem;border-radius:2px;text-transform:uppercase;letter-spacing:.05em}
+ .ok{background:#e6f0e7;color:var(--good)} .no{background:#f6e5e5;color:var(--bad)}
+ .mid{background:#f5ebd9;color:var(--warn)}
+ a{color:var(--acc)} .scroll{overflow-x:auto}
+ .note{font-size:.82rem;color:var(--mut);background:#fdf7e6;border-left:3px solid var(--warn);
+       padding:.6rem .8rem;border-radius:0 3px 3px 0;margin:1rem 0}
+ h2{font-size:1rem;margin:2rem 0 .5rem;padding-top:1rem;border-top:1px solid var(--line)}
+</style>
+<div class="wrap">
+  <h1>Nature&rsquo;s Blooms &middot; creator tracker</h1>
+  <p class="sub">Retainer performance, live from TikTok Shop video analytics.</p>
+
+  <div class="bar">
+    <div><label>admin token</label><input id="adm" value="__ADMIN__" size="30" placeholder="paste token"></div>
+    <div><label>from</label><input id="s" type="date" value="__START__"></div>
+    <div><label>to (exclusive)</label><input id="e" type="date" value="__END__"></div>
+    <div><button id="go">Load</button></div>
+    <div style="flex:1"></div>
+    <div><label>creator</label><select id="sel"><option value="">— all creators —</option></select></div>
+  </div>
+
+  <div id="status" class="sub">Pick a window and press Load.</div>
+  <div id="cards" class="cards"></div>
+  <div id="body"></div>
+</div>
+<script>
+let DATA=null, SORT={k:'gmv',d:-1};
+const $=i=>document.getElementById(i);
+const m=n=>'$'+(n||0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+const n0=n=>(n||0).toLocaleString();
+
+async function load(){
+  const a=$('adm').value.trim(); if(!a){$('status').textContent='Enter the admin token.';return;}
+  $('go').disabled=true; $('status').textContent='Loading from TikTok…';
+  try{
+    const r=await fetch(`/api/creators?admin=${encodeURIComponent(a)}&start=${$('s').value}&end=${$('e').value}`);
+    if(!r.ok){$('status').textContent='Error '+r.status+' — '+(await r.text()).slice(0,200);return;}
+    DATA=await r.json(); fillSelect(); render();
+    $('status').textContent=`${DATA.totals.videos_posted} roster videos in ${DATA.window.start} → ${DATA.window.end}`;
+  }catch(err){$('status').textContent='Failed: '+err}
+  finally{$('go').disabled=false}
+}
+function fillSelect(){
+  const s=$('sel'); s.innerHTML='<option value="">— all creators —</option>';
+  DATA.creators.forEach(c=>{
+    const o=document.createElement('option'); o.value=c.handle;
+    o.textContent=`${c.name} (@${c.handle}) — ${c.posted}/${c.committed_videos} posts`;
+    s.appendChild(o);
+  });
+}
+function statusPill(c){
+  if(c.status==='Inactive') return '<span class="pill no">inactive</span>';
+  if(c.posted===0) return '<span class="pill no">no posts</span>';
+  if(c.pace>=0.9) return '<span class="pill ok">on pace</span>';
+  if(c.pace>=0.4) return '<span class="pill mid">behind</span>';
+  return '<span class="pill no">well behind</span>';
+}
+function render(){
+  const pick=$('sel').value;
+  const t=DATA.totals;
+  $('cards').innerHTML=[
+    ['Videos posted',`${n0(t.videos_posted)} <span style="font-size:.8rem;color:#5c6b70">/ ${n0(t.videos_committed)}</span>`],
+    ['Earned',m(t.earned)],['Committed',m(t.committed)],
+    ['Roster GMV',m(t.roster_gmv)],
+    ['Cost per $ GMV', t.roster_gmv? (t.earned/t.roster_gmv).toFixed(2):'—'],
+    ['Off-roster GMV',m(t.offroster_gmv)],
+  ].map(([k,v])=>`<div class="card"><h4>${k}</h4><div class="v">${v}</div></div>`).join('');
+
+  if(pick){ renderOne(DATA.creators.find(c=>c.handle===pick)); return; }
+  const rows=[...DATA.creators].sort((a,b)=>((a[SORT.k]??-1)-(b[SORT.k]??-1))*SORT.d);
+  $('body').innerHTML=`<div class="scroll"><table><thead><tr>
+    <th data-k="name">Creator</th><th data-k="posted" class="n">Posts</th>
+    <th class="n">Committed</th><th data-k="pace" class="n">Pace</th>
+    <th data-k="earned" class="n">Earned</th><th data-k="gmv" class="n">GMV</th>
+    <th data-k="views" class="n">Views</th><th data-k="units" class="n">Units</th>
+    <th data-k="roi" class="n">GMV / $1</th><th>Status</th></tr></thead><tbody>
+    ${rows.map(c=>`<tr data-h="${c.handle}">
+      <td><b>${c.name}</b><br><span style="color:#5c6b70;font-size:.78rem">@${c.handle}</span></td>
+      <td class="n">${c.posted}</td><td class="n" style="color:#5c6b70">${c.committed_videos}</td>
+      <td class="n">${c.pace==null?'—':(c.pace*100).toFixed(0)+'%'}</td>
+      <td class="n">${m(c.earned)}</td><td class="n">${m(c.gmv)}</td>
+      <td class="n">${n0(c.views)}</td><td class="n">${n0(c.units)}</td>
+      <td class="n">${c.roi==null?'—':c.roi.toFixed(2)}</td>
+      <td>${statusPill(c)}</td></tr>`).join('')}
+    </tbody></table></div>
+    <div class="note">${DATA.live_note}</div>
+    <h2>Off-roster creators driving GMV</h2>
+    <div class="scroll"><table><thead><tr><th>Handle</th><th class="n">Videos</th>
+      <th class="n">GMV</th><th class="n">Views</th><th class="n">Units</th></tr></thead><tbody>
+      ${DATA.off_roster.map(o=>`<tr><td>@${o.handle}</td><td class="n">${o.videos}</td>
+        <td class="n">${m(o.gmv)}</td><td class="n">${n0(o.views)}</td>
+        <td class="n">${n0(o.units)}</td></tr>`).join('')}</tbody></table></div>`;
+  document.querySelectorAll('th[data-k]').forEach(th=>th.onclick=()=>{
+    const k=th.dataset.k; SORT = SORT.k===k?{k,d:-SORT.d}:{k,d:-1}; render();});
+  document.querySelectorAll('tbody tr[data-h]').forEach(tr=>tr.onclick=()=>{
+    $('sel').value=tr.dataset.h; render();});
+}
+function renderOne(c){
+  if(!c){$('body').innerHTML='';return;}
+  $('body').innerHTML=`
+   <h2>${c.name} &middot; @${c.handle} ${statusPill(c)}</h2>
+   <div class="cards">
+     ${[['Posts',`${c.posted} / ${c.committed_videos}`],['Rate',m(c.rate)],
+        ['Earned',m(c.earned)],['Committed',m(c.committed_cost)],
+        ['GMV',m(c.gmv)],['GMV per video',c.gmv_per_video==null?'—':m(c.gmv_per_video)],
+        ['GMV per $1 paid',c.roi==null?'—':c.roi.toFixed(2)],['Views',n0(c.views)]]
+       .map(([k,v])=>`<div class="card"><h4>${k}</h4><div class="v">${v}</div></div>`).join('')}
+   </div>
+   ${c.videos.length?`<div class="scroll"><table><thead><tr><th>Posted</th><th>Video</th>
+     <th class="n">Views</th><th class="n">GMV</th><th class="n">Units</th><th class="n">CTR</th>
+     <th>Link</th></tr></thead><tbody>
+     ${c.videos.map(v=>`<tr><td style="white-space:nowrap">${(v.posted||'').slice(0,10)}</td>
+       <td>${(v.title||'').replace(/</g,'&lt;')||'<i>no title</i>'}</td>
+       <td class="n">${n0(v.views)}</td><td class="n">${m(v.gmv)}</td>
+       <td class="n">${v.units}</td><td class="n">${v.ctr??'—'}</td>
+       <td><a href="${v.url}" target="_blank" rel="noopener">open</a></td></tr>`).join('')}
+     </tbody></table></div>`:'<p class="sub">No videos in this window.</p>'}`;
+}
+$('go').onclick=load; $('sel').onchange=render;
+['s','e'].forEach(i=>$(i).onchange=()=>{if(DATA)load()});
+if($('adm').value.trim()) load();
+</script>
+"""
+
+
 # ---------------------------------------------------------------- status
 @app.get("/status")
 async def status(admin: str = Query(...)):
@@ -513,6 +693,7 @@ async def home(request: Request):
     <h1>Nature&rsquo;s Blooms &middot; TikTok Shop connector</h1>
     <p style="color:#5c6b70">Pulls orders and settlements straight from Seller Center.</p>
     <table>{rows}</table>
+    <p><a href="/creators">&rarr; Creator retainer tracker</a></p>
     <p>Connect or reconnect: <code>/connect?admin=YOUR_ADMIN_TOKEN</code><br>
        Then once: <code>/api/shops?admin=...</code> to capture the shop cipher.</p>
     <div class="warn">Every endpoint except this page and <code>/health</code> needs

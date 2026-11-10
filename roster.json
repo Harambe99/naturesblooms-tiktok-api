@@ -1,0 +1,29 @@
+{
+  "_comment": "Nature's Blooms retainer roster. Edit rates here; the tracker reads this file.",
+  "video": [
+    {"name": "Wellness Wise",   "handle": "wellnesswise222",     "videos": 30, "rate": 100.00, "status": "Active"},
+    {"name": "Shariya Wise",    "handle": "shariyawise",         "videos": 4,  "rate": 250.00, "status": "Active"},
+    {"name": "Qyecha Tierra",   "handle": "qyechatierra",        "videos": 15, "rate": 33.33,  "status": "Active"},
+    {"name": "Laquavia Conley", "handle": "leobaby75",           "videos": 20, "rate": 33.33,  "status": "Active"},
+    {"name": "Amari Sparks",    "handle": "marismyxx",           "videos": 60, "rate": 13.33,  "status": "Active"},
+    {"name": "Dr. Young",       "handle": "docyungmom",          "videos": 30, "rate": 11.67,  "status": "Active"},
+    {"name": "Candace Turner",  "handle": "candacereviews",      "videos": 30, "rate": 15.00,  "status": "Active"},
+    {"name": "Whitney",         "handle": "walkerbyfaith_",      "videos": 30, "rate": 10.00,  "status": "Active"},
+    {"name": "Khaylla Flames",  "handle": "kayylaflame",         "videos": 30, "rate": 20.00,  "status": "Inactive"},
+    {"name": "Kaylee",          "handle": "princessjuicegyal",   "videos": 7,  "rate": 175.00, "status": "Active"},
+    {"name": "Tamika Burton",   "handle": "missredgal",          "videos": 10, "rate": 50.00,  "status": "Active"},
+    {"name": "Sheree Brown",    "handle": "itssimplysheree_",    "videos": 30, "rate": 10.00,  "status": "Active"},
+    {"name": "Senovia Brasley", "handle": "gardeningwithmsnovi", "videos": 15, "rate": 20.00,  "status": "Active"},
+    {"name": "Ash",             "handle": "lifeintheashlane",    "videos": 4,  "rate": 175.00, "status": "Active"},
+    {"name": "Anita Grace",     "handle": "anitagraciebeauty",   "videos": 30, "rate": 10.00,  "status": "Active"}
+  ],
+  "live": [
+    {"name": "Netti",         "handle": "nettinonstop",       "hourly": null,  "status": "Active"},
+    {"name": "Denise",        "handle": "totaldesignfromatoz","hourly": 20.00, "status": "Active"},
+    {"name": "Tammy",         "handle": "journey2wellnessnow","hourly": 10.00, "status": "Active"},
+    {"name": "Tridereka",     "handle": "myblackgirlroots",   "hourly": 20.00, "status": "Active"},
+    {"name": "Tyjae",         "handle": "eajyt",              "hourly": null,  "status": "Active"},
+    {"name": "Krystle Lynch", "handle": "krystlelynch",       "hourly": null,  "status": "Inactive"},
+    {"name": "Charity",       "handle": "charityjthecreator", "hourly": null,  "status": "Inactive"}
+  ]
+}
