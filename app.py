@@ -104,6 +104,20 @@ FORBIDDEN_TOKENS = frozenset({
 })
 
 
+# NARROW EXCEPTION, approved by AJ on 10 Nov 2026.
+# TikTok puts search filters in a request body, so its search endpoints are POST.
+# POST is permitted ONLY to these exact paths — exact match, never a prefix.
+# They read and return rows. They cannot create, modify or delete anything.
+SEARCH_POST_PATHS = frozenset({
+    "/order/202309/orders/search",
+    "/product/202309/products/search",
+    "/return_refund/202309/returns/search",
+    "/affiliate_seller/202405/orders/search",
+    "/affiliate_seller/202405/creators/search",
+    "/affiliate_seller/202405/affiliate_videos/search",
+})
+
+
 class UnsafeCall(Exception):
     """Raised before anything is sent. A bug here fails closed, never open."""
 
@@ -111,8 +125,14 @@ class UnsafeCall(Exception):
 def assert_read_only(method: str, path: str) -> None:
     if not READ_ONLY:
         raise UnsafeCall("READ_ONLY was disabled — refusing to run at all")
-    if method.upper() != "GET":
-        raise UnsafeCall(f"{method} blocked: this service only ever issues GET")
+    m = method.upper()
+    if m == "POST":
+        if path not in SEARCH_POST_PATHS:
+            raise UnsafeCall(
+                f"POST {path!r} blocked: POST is allowed only to the named search endpoints"
+            )
+    elif m != "GET":
+        raise UnsafeCall(f"{m} blocked: only GET, plus POST to named search endpoints")
     prefix = next((p for p in ALLOWED_PREFIXES if path.startswith(p)), None)
     if prefix is None:
         raise UnsafeCall(f"path {path!r} is not on the allowlist")
@@ -238,6 +258,46 @@ async def _startup() -> None:
     asyncio.create_task(refresh_loop())
 
 
+async def tiktok_post(path: str, body: Optional[Dict[str, Any]] = None,
+                      extra: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """Signed POST — only ever reaches the allowlisted search endpoints."""
+    try:
+        assert_read_only("POST", path)
+    except UnsafeCall as e:
+        raise HTTPException(status_code=403, detail=f"blocked by read-only guard: {e}")
+
+    tokens = load_tokens()
+    access = tokens.get("access_token")
+    if not access:
+        raise HTTPException(status_code=409, detail="not connected — visit /connect first")
+    if tokens.get("access_token_expire_in", 0) < time.time() + 120:
+        tokens = await do_refresh()
+        access = tokens["access_token"]
+
+    payload = json.dumps(body or {}, separators=(",", ":"))
+    params: Dict[str, Any] = {
+        "app_key": APP_KEY,
+        "timestamp": int(time.time()),
+        "shop_cipher": tokens.get("shop_cipher", ""),
+    }
+    params.update(extra or {})
+    params = {k: v for k, v in params.items() if v not in ("", None)}
+    params["sign"] = sign(path, params, payload)
+
+    async with httpx.AsyncClient(timeout=60) as client:
+        r = await client.post(
+            f"{API_BASE}{path}", params=params, content=payload,
+            headers={"x-tts-access-token": access, "content-type": "application/json"},
+        )
+    try:
+        data = r.json()
+    except ValueError:
+        raise HTTPException(status_code=502, detail=f"non-JSON from TikTok: {r.text[:300]}")
+    if data.get("code") not in (0, None):
+        raise HTTPException(status_code=502, detail=data)
+    return data
+
+
 # ---------------------------------------------------------------- oauth
 @app.get("/connect")
 async def connect(admin: str = Query(..., description="ADMIN_TOKEN")):
@@ -344,9 +404,10 @@ async def orders(
     page_size: int = 50,
 ):
     require_admin(admin)
-    return await tiktok_get(
+    return await tiktok_post(
         "/order/202309/orders/search",
-        {"page_size": page_size, "create_time_ge": start, "create_time_lt": end},
+        body={"create_time_ge": start, "create_time_lt": end},
+        extra={"page_size": page_size},
     )
 
 
@@ -371,6 +432,20 @@ async def settlements(
             "sort_order": sort_order,
         },
     )
+
+
+@app.get("/api/probe")
+async def probe(admin: str = Query(...), path: str = Query(...), method: str = "GET",
+                body: str = "{}", extra: str = "{}"):
+    """Diagnostic. Still passes the same guard — it cannot reach a write endpoint."""
+    require_admin(admin)
+    try:
+        ex = json.loads(extra); bd = json.loads(body)
+    except json.JSONDecodeError as e:
+        raise HTTPException(status_code=400, detail=f"bad JSON: {e}")
+    if method.upper() == "POST":
+        return await tiktok_post(path, body=bd, extra=ex)
+    return await tiktok_get(path, ex)
 
 
 # ---------------------------------------------------------------- status
