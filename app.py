@@ -20,8 +20,10 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 import httpx
-from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi import Body, FastAPI, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+
+import feed
 
 APP_KEY = os.getenv("TTS_APP_KEY", "")
 APP_SECRET = os.getenv("TTS_APP_SECRET", "")
@@ -458,16 +460,297 @@ async def api_creators(admin: str = Query(...),
     return C.build(vids, C.load_roster(), start, end, lives=lives)
 
 
-# TikTok's creator/video exports lag ~2 days, and the analytics feed behind this
-# tracker settles on the same delay. Anything newer than this reads as a partial
-# day and under-reports posts, so the picker refuses to go past it.
+# Fallback only. The analytics feed reports its own latest_available_date, which
+# is the real freshness boundary (it was 1 day behind on 10 Nov 2026, not 2), so
+# data_through() below prefers the API's answer and only falls back to this.
 DATA_LAG_DAYS = 2
 
 
 def last_complete_day():
-    """Most recent date whose creator data is fully settled (today - lag)."""
+    """Fallback freshness boundary when the API does not report one."""
     import datetime as _dt
     return _dt.date.today() - _dt.timedelta(days=DATA_LAG_DAYS)
+
+
+# ================================================================ NB app (tabs)
+# Read helpers below are all cached via feed.cached(). Every TikTok call still
+# goes through tiktok_get, so assert_read_only governs all of them.
+
+async def _data_through(force: bool = False) -> str:
+    """The latest date TikTok says it has complete data for."""
+    import daily as DY
+    val, _ = await feed.cached("latest", (), lambda: DY.latest_date(tiktok_get),
+                               force=force, ttl=1800)
+    if val:
+        return val
+    return last_complete_day().isoformat()
+
+
+async def _creator_payload(force: bool = False) -> Dict[str, Any]:
+    """Month-to-date creator aggregation with roster edits + statuses applied."""
+    import datetime as _dt
+    import creators as C
+    import store as S
+    through = await _data_through(force)
+    first = _dt.date.fromisoformat(through).replace(day=1)
+    start, end = first.isoformat(), (_dt.date.fromisoformat(through)
+                                     + _dt.timedelta(days=1)).isoformat()
+
+    async def pull():
+        return await asyncio.gather(
+            C.fetch_videos(tiktok_get, start, end),
+            C.fetch_lives(tiktok_get, start, end),
+        )
+
+    (vids, lives), at = await feed.cached("creators", (start, end), pull, force=force)
+    sdata = S.load()
+    roster = C.merge_roster(C.load_roster(), sdata)
+    out = C.build(vids, roster, start, end, lives=lives)
+    out = C.apply_statuses(out, sdata.get("statuses", {}), first)
+    out["meta"] = {"pulled_at": feed.stamp_for(at), "data_through": through,
+                   "window": {"start": start, "end": end}}
+    out["_raw"] = {"videos": vids, "lives": lives}
+    return out
+
+
+@app.get("/api/creators2")
+async def api_creators2(admin: str = Query(...), force: int = 0):
+    """Creator performance for the month to date, statuses + roster edits applied."""
+    require_admin(admin)
+    import creators as C
+    out = await _creator_payload(force=bool(force))
+    raw = out.pop("_raw")
+    # attach a live-feed verdict to every roster handle so the Roster tab can
+    # show whether each one actually resolves — this is how typos get caught
+    for row in list(out.get("creators", [])) + list(out.get("live_creators", [])):
+        if row.get("handle"):
+            row["handle_check"] = C.validate_handle(row["handle"], raw["videos"], raw["lives"])
+    return out
+
+
+@app.get("/api/validate-handle")
+async def api_validate_handle(admin: str = Query(...), handle: str = Query("")):
+    """Check one handle against the live feed, with fuzzy near-miss suggestions."""
+    require_admin(admin)
+    import creators as C
+    out = await _creator_payload(force=False)
+    raw = out["_raw"]
+    return C.validate_handle(handle, raw["videos"], raw["lives"])
+
+
+async def _daily_payload(force: bool = False) -> Dict[str, Any]:
+    import datetime as _dt
+    import daily as DY
+    import store as S
+    through = await _data_through(force)
+    day = _dt.date.fromisoformat(through)
+    nxt = (day + _dt.timedelta(days=1)).isoformat()
+    first = day.replace(day=1).isoformat()
+
+    async def pull():
+        return await asyncio.gather(
+            DY.fetch_products(tiktok_get, through, nxt),
+            DY.fetch_shop(tiktok_get, through, nxt),
+            DY.fetch_products(tiktok_get, first, nxt),
+            DY.fetch_shop(tiktok_get, first, nxt),
+        )
+
+    (pd_, sd_, pm_, sm_), at = await feed.cached("daily", (through,), pull, force=force)
+    cr = await _creator_payload(force=force)
+    sdata = S.load()
+    out = DY.build(through, first, pd_, sd_, pm_, sm_,
+                   cr["_raw"]["videos"], cr.get("_roster") or _merged_roster(sdata),
+                   cr, sdata.get("goals", {}), sdata.get("onboarding", {}))
+    out["meta"] = {"pulled_at": feed.stamp_for(at), "data_through": through}
+    return out
+
+
+def _merged_roster(sdata):
+    import creators as C
+    return C.merge_roster(C.load_roster(), sdata)
+
+
+@app.get("/api/daily")
+async def api_daily(admin: str = Query(...), force: int = 0):
+    require_admin(admin)
+    return await _daily_payload(force=bool(force))
+
+
+@app.get("/api/pnl")
+async def api_pnl(admin: str = Query(...), force: int = 0, month: str = ""):
+    """Month-to-date P&L. Order basis for the net; settlement rows shown separately."""
+    require_admin(admin)
+    import datetime as _dt
+    import daily as DY
+    import pnl as P
+    import store as S
+    through = await _data_through(force)
+    day = _dt.date.fromisoformat(through)
+    month = month or through[:7]
+    first = day.replace(day=1).isoformat()
+    nxt = (day + _dt.timedelta(days=1)).isoformat()
+
+    async def pull_products():
+        return await DY.fetch_products(tiktok_get, first, nxt)
+
+    prods, at = await feed.cached("pnl_products", (month, through), pull_products,
+                                  force=force)
+
+    async def pull_settlement():
+        try:
+            return await tiktok_get("/finance/202309/statements", {
+                "statement_time_ge": int(_dt.datetime.fromisoformat(first + "T00:00:00").timestamp()),
+                "statement_time_lt": int(_dt.datetime.fromisoformat(nxt + "T00:00:00").timestamp()),
+                "page_size": 100,
+            })
+        except Exception as e:                       # finance shape varies by region
+            return {"_error": str(e)[:200]}
+
+    stm, _ = await feed.cached("pnl_settlement", (month, through), pull_settlement,
+                               force=force, ttl=1800)
+    statements = ((stm.get("data") or {}).get("statements") or []) if isinstance(stm, dict) else []
+    settle = P.settlement_summary(statements)
+    if isinstance(stm, dict) and stm.get("_error"):
+        settle["error"] = stm["_error"]
+
+    cr = await _creator_payload(force=force)
+    cr.pop("_raw", None)
+    sdata = S.load()
+    out = P.build(month, through, DY.sku_table(prods.get("products", [])),
+                  settle, cr, sdata.get("manual_costs", []),
+                  sdata.get("pnl_overrides", {}))
+    out["meta"] = {"pulled_at": feed.stamp_for(at), "data_through": through}
+    return out
+
+
+@app.get("/api/summary")
+async def api_summary(admin: str = Query(...), force: int = 0):
+    """Home screen: the few numbers that matter, plus anything needing attention."""
+    require_admin(admin)
+    dy = await _daily_payload(force=bool(force))
+    pl = await api_pnl(admin=admin, force=0)
+    cr = await _creator_payload(force=False)
+    alerts = []
+    for row in list(cr.get("creators", [])) + list(cr.get("live_creators", [])):
+        if not row.get("resolved"):
+            alerts.append(f"{row['name']} has no confirmed TikTok handle, so their "
+                          f"numbers read as zero rather than as 'posted nothing'.")
+        elif row.get("handle_note"):
+            alerts.append(f"{row['name']}: {row['handle_note'][:160]}")
+    return {
+        "meta": dy["meta"],
+        "day": {"gmv": dy["skus_day"]["gmv"], "units": dy["skus_day"]["units"],
+                "orders": dy["skus_day"]["orders"]},
+        "mtd": {"gmv": dy["skus_mtd"]["gmv"], "units": dy["skus_mtd"]["units"]},
+        "retainers": dy["retainers"],
+        "goals": dy["goals"],
+        "pnl": {"net": pl["net"], "margin": pl["margin"]},
+        "alerts": alerts[:6],
+    }
+
+
+# ---------------------------------------------------------------- local writes
+# These persist to OUR disk via store.py. store.py imports no HTTP client and
+# never calls tiktok_get, so no local write can reach TikTok. tests enforce it.
+@app.post("/api/store/goals")
+async def store_goals(admin: str = Query(...), body: Dict[str, Any] = None):
+    require_admin(admin)
+    import store as S
+    S.set_goals(body or {})
+    feed.invalidate("daily")
+    return {"ok": True}
+
+
+@app.post("/api/store/onboarding")
+async def store_onboarding(admin: str = Query(...), body: Dict[str, Any] = None):
+    require_admin(admin)
+    import store as S
+    b = body or {}
+    S.set_onboarding(b.get("waiting"), b.get("onboarded"), b.get("note", ""))
+    feed.invalidate("daily")
+    return {"ok": True}
+
+
+@app.post("/api/store/status")
+async def store_status(admin: str = Query(...), body: Dict[str, Any] = None):
+    require_admin(admin)
+    import store as S
+    b = body or {}
+    try:
+        S.set_status(b.get("key", ""), b.get("status", ""), b.get("end_date"))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"ok": True}
+
+
+@app.post("/api/store/roster-add")
+async def store_roster_add(admin: str = Query(...), body: Dict[str, Any] = None):
+    require_admin(admin)
+    import store as S
+    try:
+        S.add_creator(body or {})
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"ok": True}
+
+
+@app.post("/api/store/roster-override")
+async def store_roster_override(admin: str = Query(...), body: Dict[str, Any] = None):
+    require_admin(admin)
+    import store as S
+    b = body or {}
+    if not b.get("key"):
+        raise HTTPException(status_code=400, detail="key is required")
+    S.set_roster_override(b["key"], b.get("fields") or {})
+    return {"ok": True}
+
+
+@app.post("/api/store/pnl-cell")
+async def store_pnl_cell(admin: str = Query(...), body: Dict[str, Any] = None):
+    require_admin(admin)
+    import store as S
+    b = body or {}
+    try:
+        S.set_pnl_override(b.get("month", ""), b.get("row_id", ""),
+                           b.get("value"), b.get("note", ""))
+    except (ValueError, TypeError) as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"ok": True}
+
+
+@app.post("/api/store/pnl-cell-clear")
+async def store_pnl_cell_clear(admin: str = Query(...), body: Dict[str, Any] = None):
+    require_admin(admin)
+    import store as S
+    b = body or {}
+    S.clear_pnl_override(b.get("month", ""), b.get("row_id", ""))
+    return {"ok": True}
+
+
+@app.post("/api/store/cost")
+async def store_cost(admin: str = Query(...), body: Dict[str, Any] = None):
+    require_admin(admin)
+    import store as S
+    try:
+        S.upsert_cost(body or {})
+    except (ValueError, TypeError) as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"ok": True}
+
+
+@app.post("/api/store/cost-delete")
+async def store_cost_delete(admin: str = Query(...), body: Dict[str, Any] = None):
+    require_admin(admin)
+    import store as S
+    S.delete_cost((body or {}).get("id", ""))
+    return {"ok": True}
+
+
+@app.get("/app", response_class=HTMLResponse)
+async def app_page(admin: str = Query("")):
+    """The tabbed app: Home, Daily overview, Creator performance, P&L."""
+    import ui
+    return HTMLResponse(ui.PAGE.replace("__ADMIN__", admin))
 
 
 @app.get("/creators", response_class=HTMLResponse)

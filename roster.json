@@ -1,62 +1,74 @@
 {
-  "_comment": "Nature's Blooms retainer roster. SOURCE OF TRUTH is '~/Desktop/NaturesBlooms - November Retainer Tracker.xlsx' (23 creators). Rebuilt 10 Nov 2026 directly from that sheet, column for column. Rates and commitments must match the sheet exactly — do not 'normalise' them. Three handles are deliberate, verified overrides of the sheet (see handle_note on each). One creator (Ash) is unresolved and one (Daisy) has no handle: both carry resolved=false and are reported but never matched to API data.",
-  "_tracker": "NaturesBlooms - November Retainer Tracker.xlsx",
+  "_comment": "Nature's Blooms retainer roster. SOURCE OF TRUTH is '~/Downloads/NaturesBloomss_Creator_Pipeline (1).xlsx', sheet 'November Retainers (1)' (23 creators). Rebuilt 10 Nov 2026 column-for-column from that sheet, which supersedes the stale 6 Nov 'NaturesBlooms - November Retainer Tracker.xlsx'. The sheet's own totals, which this file must reproduce: committed video retainers $10,391.45, committed max hourly $4,000.00, TOTAL COMMITTED $14,391.45; 23 creators = 10 Active, 3 Inactive, 10 blank. Two handles are deliberate, verified overrides of the sheet's handle cell (see handle_note). Sheet footnote: 'Removed from this sheet: Kev, Raven and Dawania Brown.'",
+  "_tracker": "NaturesBloomss_Creator_Pipeline (1).xlsx — November Retainers (1)",
   "_rebuilt": "2026-11-10",
-  "_status_rule": "Only an explicit 'Inactive' excludes a creator from earned and committed totals. A blank status still counts. The tracker's Status column is replicated verbatim.",
+  "_status_rule": "Only an explicit 'Inactive' excludes a creator from earned and committed totals. A blank status still counts. The sheet's Status column is replicated verbatim; Khaylla's $600 is the only excluded video retainer.",
   "video": [
     {
       "name": "Wellness Wise — Marketing Acct",
       "handle": "wellnesswise222",
+      "link": "https://www.tiktok.com/@wellnesswise222",
       "videos": 30,
       "rate": 100.0,
+      "perf_retainer": 3000.0,
       "commission": "20%",
-      "status": "",
+      "status": "Active",
       "resolved": true,
       "attribution": "owned",
-      "note": "Brand-owned marketing account. Her videos are not affiliate-shoppable, so TikTok's Creator List export reports 0 videos and $0 GMV for her. Posts and GMV here come from shop video analytics, which does see them. Do not reconcile this row against the affiliate export."
+      "note": "Brand-owned marketing account. Her videos are not affiliate-shoppable, so TikTok's Creator List export reports 0 videos and $0 GMV for her. Posts and GMV here come from shop video analytics, which does see them. Do not reconcile this row against the affiliate export. Sheet note: try getting to 5-10 organic videos."
     },
     {
       "name": "Shariya Wise",
       "handle": "shariyawise",
+      "link": "https://www.tiktok.com/@shariyawise",
       "videos": 4,
       "rate": 250.0,
+      "perf_retainer": 1000.0,
       "commission": "15%",
-      "status": "",
-      "resolved": true
+      "status": "Active",
+      "resolved": true,
+      "note": "Sheet note: Oct sheet typed the retainer as 250, which made it read $62.50/video. It is now videos x rate."
     },
     {
       "name": "Qyecha Tierra",
       "handle": "qyechatierra",
+      "link": "https://www.tiktok.com/@qyechatierra",
       "videos": 15,
       "rate": 33.33,
+      "perf_retainer": 499.95,
       "commission": "20%",
-      "status": "",
+      "status": "Active",
       "resolved": true
     },
     {
       "name": "Laquavia Conley",
       "handle": "leobaby75",
+      "link": "https://www.tiktok.com/@leobaby75",
       "videos": 20,
       "rate": 33.33,
+      "perf_retainer": 666.6,
       "commission": "20%",
-      "status": "",
+      "status": "Active",
       "resolved": true
     },
     {
       "name": "Amari Sparks",
       "handle": "marismyxx",
-      "videos": 50,
-      "rate": 16.0,
+      "link": "https://www.tiktok.com/@marismyxx",
+      "videos": 60,
+      "rate": 13.33,
+      "perf_retainer": 799.8,
       "commission": "20%",
       "status": "Active",
-      "resolved": true,
-      "note": "Tracker says 50 videos at $16. An earlier roster had 60 at $13.33 — same $800 ceiling but the wrong per-post rate, which understated earned. Corrected to the sheet."
+      "resolved": true
     },
     {
       "name": "Dr. Young",
       "handle": "docyungmom",
+      "link": "https://www.tiktok.com/@docyungmom",
       "videos": 30,
       "rate": 11.67,
+      "perf_retainer": 350.1,
       "commission": "20%",
       "status": "",
       "resolved": true
@@ -64,17 +76,22 @@
     {
       "name": "Candace Turner",
       "handle": "candacereviews",
+      "link": "https://www.tiktok.com/@candacereviews",
       "videos": 30,
       "rate": 15.0,
+      "perf_retainer": 450.0,
       "commission": "20%",
       "status": "",
-      "resolved": true
+      "resolved": true,
+      "note": "Sheet note: October was 9 posts, not the 11 the export showed."
     },
     {
       "name": "Whitney",
       "handle": "walkerbyfaith_",
+      "link": "https://www.tiktok.com/@walkerbyfaith_",
       "videos": 30,
       "rate": 10.0,
+      "perf_retainer": 300.0,
       "commission": "20%",
       "status": "",
       "resolved": true
@@ -82,27 +99,34 @@
     {
       "name": "Khaylla Flames",
       "handle": "kayylaflame",
+      "link": "https://www.tiktok.com/@kayylaflame",
       "videos": 30,
       "rate": 20.0,
+      "perf_retainer": 600.0,
       "commission": "20%",
-      "status": "",
-      "resolved": true
+      "status": "Inactive",
+      "resolved": true,
+      "note": "Inactive on the sheet — her $600 is the only excluded video retainer."
     },
     {
       "name": "Kaylee",
       "handle": "juicegyalprncess",
-      "videos": 10,
+      "link": "https://www.tiktok.com/@juicegyalprncess",
+      "videos": 7,
       "rate": 175.0,
+      "perf_retainer": 1225.0,
       "commission": "20%",
-      "status": "",
+      "status": "Active",
       "resolved": true,
-      "handle_note": "Tracker says princessjuicegyal, which returns no data in either the API feed or the affiliate export. juicegyalprncess returns her content and matches the sheet's account link. Verified 10 Nov 2026. Fix the sheet."
+      "handle_note": "Sheet's handle cell says princessjuicegyal, which returns NO data in the live feed — a typo. The sheet's own account LINK points at juicegyalprncess, which does return her content. Verified against 30 days of feed, 10 Nov 2026. Fix the sheet's handle cell."
     },
     {
       "name": "Tamika Burton",
       "handle": "missredgal",
+      "link": "https://www.tiktok.com/@missredgal",
       "videos": 10,
       "rate": 50.0,
+      "perf_retainer": 500.0,
       "commission": "10%",
       "status": "",
       "resolved": true
@@ -110,8 +134,10 @@
     {
       "name": "Sheree Brown",
       "handle": "itssimplysheree_",
+      "link": "https://www.tiktok.com/@itssimplysheree_",
       "videos": 30,
       "rate": 10.0,
+      "perf_retainer": 300.0,
       "commission": "20%",
       "status": "",
       "resolved": true
@@ -119,49 +145,61 @@
     {
       "name": "Senovia Brasley",
       "handle": "gardeningwithmsnovi",
+      "link": "https://www.tiktok.com/@gardeningwithmsnovi",
       "videos": 15,
       "rate": 20.0,
+      "perf_retainer": 300.0,
       "commission": "20%",
       "status": "",
       "resolved": true
     },
     {
       "name": "Ash",
-      "handle": null,
+      "handle": "lifeintheashlane",
+      "link": "https://www.tiktok.com/@lifeintheashlane",
       "videos": 4,
       "rate": 175.0,
+      "perf_retainer": 700.0,
       "commission": "20%",
       "status": "",
-      "resolved": false,
-      "note": "HANDLE UNRESOLVED — needs AJ. Tracker says ash.hooooole, which exists in neither the API feed nor the affiliate export. An earlier roster guessed lifeintheashlane, but that account has NB content going back to Oct 2024 and posted nothing in November, so she is not the new Ash (162,849 followers, added Nov). At $175/post this row cannot be paid on guessed data, so it reports zero until a handle is confirmed."
+      "resolved": true,
+      "handle_note": "VERIFY BEFORE PAYING. The sheet names lifeintheashlane and its own NOTE says 'CONFIRM THE HANDLE — several creators in the exports are named Ash.' Independent check (10 Nov 2026): lifeintheashlane has NB content going back to Oct 2024 and posted 0 videos in November — probably a long-standing creator, NOT the new 162,849-follower Ash the sheet describes. At $175/post, do not pay on this handle's numbers until AJ confirms it.",
+      "note": "Sheet note: NEW. 162,849 followers. CONFIRM THE HANDLE — several creators in the exports are named Ash."
     },
     {
       "name": "Anita Grace",
       "handle": "anitagraciebeauty",
+      "link": "https://www.tiktok.com/@anitagraciebeauty",
       "videos": 30,
       "rate": 10.0,
+      "perf_retainer": 300.0,
       "commission": "20%",
       "status": "",
       "resolved": true,
-      "note": "Handle is anitaGRACIEbeauty. No videos in the window; she does appear in the LIVE feed."
+      "handle_note": "No video data for anitagraciebeauty in the 30-day feed, though she DOES appear in the LIVE feed — the handle exists, she just has not posted shoppable videos in the window.",
+      "note": "Sheet note: NEW. Handle is anitaGRACIEbeauty, not anitagracebeauty. $300 for 30 posts = $10/post."
     }
   ],
   "live": [
     {
       "name": "Netti",
       "handle": "nettinonstop",
+      "link": "https://www.tiktok.com/@nettinonstop",
       "hourly": null,
       "hours_cap": null,
+      "perf_retainer": null,
       "commission": "30%",
       "status": "",
       "resolved": true,
-      "note": "No hourly rate on the tracker — commission only, so hours are reported but earned cannot be computed."
+      "note": "No hourly rate on the sheet — commission only, so hours are reported but earned cannot be computed."
     },
     {
       "name": "Denise",
       "handle": "totaldesignfromatoz",
+      "link": "https://www.tiktok.com/@totaldesignfromatoz",
       "hourly": 20.0,
       "hours_cap": 80,
+      "perf_retainer": 1600.0,
       "commission": "20%",
       "status": "Active",
       "resolved": true
@@ -169,38 +207,46 @@
     {
       "name": "Tammy",
       "handle": "journey2wellnessnow",
+      "link": "https://www.tiktok.com/@journey2wellnessnow",
       "hourly": 10.0,
       "hours_cap": 80,
+      "perf_retainer": 800.0,
       "commission": "30%",
       "status": "Active",
-      "resolved": true
+      "resolved": true,
+      "note": "Sheet note: Streamed 24.45h across 17 sessions in October."
     },
     {
       "name": "Tridereka",
       "handle": "myblackgirlroots",
+      "link": "https://www.tiktok.com/@tridereka16",
       "hourly": 20.0,
       "hours_cap": 80,
+      "perf_retainer": 1600.0,
       "commission": "30%",
       "status": "Active",
       "resolved": true,
-      "handle_note": "Tracker says tridereka16, which returns no data. myblackgirlroots returns her sessions and its GMV matched the figure AJ quoted to the cent. Verified 10 Nov 2026. Fix the sheet.",
-      "note": "Hourly rate of $20 comes from AJ's instruction in chat, not the tracker — the sheet has no rate for her."
+      "handle_note": "Sheet says tridereka16 (handle AND link), which returns no data in the feed. myblackgirlroots returns her sessions and its GMV matched the figure AJ quoted to the cent. Verified 10 Nov 2026. Fix the sheet."
     },
     {
       "name": "Tyjae",
       "handle": "eajyt",
+      "link": "https://www.tiktok.com/@eajyt",
       "hourly": null,
       "hours_cap": null,
+      "perf_retainer": null,
       "commission": "20% + 10% GMV live",
       "status": "",
       "resolved": true,
-      "note": "No hourly rate on the tracker — commission only."
+      "note": "No hourly rate on the sheet — commission only."
     },
     {
       "name": "Krystle Lynch",
       "handle": "krystlelynch",
+      "link": "https://www.tiktok.com/@krystlelynch",
       "hourly": null,
       "hours_cap": null,
+      "perf_retainer": null,
       "commission": "20% + 10% GMV live",
       "status": "Inactive",
       "resolved": true
@@ -208,8 +254,10 @@
     {
       "name": "Charity",
       "handle": "charityjthecreator",
+      "link": "https://www.tiktok.com/@charityjthecreator",
       "hourly": null,
       "hours_cap": null,
+      "perf_retainer": null,
       "commission": "30%",
       "status": "Inactive",
       "resolved": true
@@ -217,12 +265,14 @@
     {
       "name": "Daisy — Marketing Acct",
       "handle": null,
+      "link": null,
       "hourly": null,
       "hours_cap": null,
+      "perf_retainer": null,
       "commission": "20% + 10% GMV live",
-      "status": "Inactive",
+      "status": "Active",
       "resolved": false,
-      "note": "Lives + Videos. Flat $500 if reactivated. No TikTok handle on the tracker, so she cannot be matched to API data. An earlier roster marked her Active; the tracker says Inactive."
+      "note": "Lives + Videos. Sheet status is Active, but there is still no TikTok handle on the sheet, so she cannot be matched to API data and reads as zero. Sheet note: Flat $500 if reactivated — put it in Performance retainer."
     }
   ]
 }
