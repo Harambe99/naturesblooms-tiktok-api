@@ -13,6 +13,7 @@ import hashlib
 import hmac
 import json
 import os
+import re
 import secrets
 import time
 from pathlib import Path
@@ -38,7 +39,7 @@ ALERT_WEBHOOK = os.getenv("ALERT_WEBHOOK", "").strip()
 
 # TikTok Shop hosts. Verify against partner.tiktokshop.com/docv2 before going live —
 # TikTok has changed these between API versions.
-AUTH_BASE = "https://services.tiktokshop.com/open/authorize"
+AUTH_BASE = os.getenv("TTS_AUTH_BASE", "https://services.tiktokshops.us/open/authorize")
 TOKEN_BASE = "https://auth.tiktok-shops.com/api/v2/token"
 API_BASE = "https://open-api.tiktokglobalshop.com"
 
@@ -69,6 +70,63 @@ def require_admin(token: Optional[str]) -> None:
         raise HTTPException(status_code=401, detail="admin token required")
 
 
+# ---------------------------------------------------------------- SAFETY
+# GROUND RULE: this service is READ-ONLY against TikTok Shop. It must never be
+# capable of changing a price, editing a product, touching inventory, cancelling
+# or shipping an order, issuing a refund, or altering any shop setting.
+#
+# Three independent layers enforce that. All three must pass before any request
+# leaves this process. They are deliberately redundant: a mistake in one is
+# caught by the others, including a mistake made by an AI editing this file.
+
+READ_ONLY = os.getenv("READ_ONLY", "true").strip().lower() != "false"
+
+# Layer 1 — only these exact path prefixes may ever be called.
+ALLOWED_PREFIXES = (
+    "/authorization/",          # which shops authorised us
+    "/finance/",                # statements, settlements — the P&L
+    "/order/",                  # order search and detail (read verbs only, see layer 2)
+    "/product/",                # product and SKU names for COGS
+    "/fulfillment/",            # parcel weight
+    "/return_refund/",          # returns and cancellations, read only
+    "/affiliate_seller/",       # creator performance
+    "/analytics/",              # shop, video and LIVE analytics
+)
+
+# Layer 2 — any path containing one of these is refused outright, even inside an
+# allowed prefix. These are the verbs that change money, stock or listings.
+FORBIDDEN_TOKENS = frozenset({
+    "create", "add", "update", "edit", "set", "upload", "activate", "deactivate",
+    "delete", "remove", "cancel", "reject", "approve", "issue", "confirm",
+    "ship", "pack", "fulfil", "fulfill", "price", "prices", "inventory", "stock",
+    "publish", "unpublish", "promotion", "promotions", "coupon", "coupons",
+    "deduct", "withdraw", "transfer", "pay", "upsert", "modify", "adjust",
+})
+
+
+class UnsafeCall(Exception):
+    """Raised before anything is sent. A bug here fails closed, never open."""
+
+
+def assert_read_only(method: str, path: str) -> None:
+    if not READ_ONLY:
+        raise UnsafeCall("READ_ONLY was disabled — refusing to run at all")
+    if method.upper() != "GET":
+        raise UnsafeCall(f"{method} blocked: this service only ever issues GET")
+    prefix = next((p for p in ALLOWED_PREFIXES if path.startswith(p)), None)
+    if prefix is None:
+        raise UnsafeCall(f"path {path!r} is not on the allowlist")
+    # Match whole words, not substrings, so "packages" is not mistaken for "pack".
+    # Split on the separators TikTok uses in paths: / _ - and version digits.
+    # Scan only what follows the allowlisted prefix, so a prefix like
+    # "/return_refund/" is not mistaken for a write verb.
+    tail = path[len(prefix):].lower()
+    words = {w for w in re.split(r"[/_\-]+", tail) if w and not w.isdigit()}
+    hit = words & set(FORBIDDEN_TOKENS)
+    if hit:
+        raise UnsafeCall(f"path {path!r} contains a write verb ({sorted(hit)[0]!r})")
+
+
 # ---------------------------------------------------------------- signing
 def sign(path: str, params: Dict[str, Any], body: str = "") -> str:
     """
@@ -87,7 +145,11 @@ def sign(path: str, params: Dict[str, Any], body: str = "") -> str:
 
 
 async def tiktok_get(path: str, extra: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-    """Signed GET against the Open API using the stored access token."""
+    """Signed GET against the Open API. Every call passes the safety gate first."""
+    try:
+        assert_read_only("GET", path)
+    except UnsafeCall as e:
+        raise HTTPException(status_code=403, detail=f"blocked by read-only guard: {e}")
     tokens = load_tokens()
     access = tokens.get("access_token")
     if not access:
@@ -321,6 +383,9 @@ async def status(admin: str = Query(...)):
         "last_successful_refresh": _refresh_log["last_ok"],
         "last_error": _refresh_log["last_error"],
         "consecutive_failures": _refresh_log["attempts"],
+        "read_only_enforced": READ_ONLY,
+        "http_methods_permitted": ["GET"],
+        "write_verbs_blocked": len(FORBIDDEN_TOKENS),
         "recovery_hint": "copy refresh_token_tail into TOKEN_BOOTSTRAP if the disk is ever lost",
         "refresh_token_tail": (t.get("refresh_token") or "")[-8:],
     }
@@ -373,4 +438,10 @@ async def home(request: Request):
        Then once: <code>/api/shops?admin=...</code> to capture the shop cipher.</p>
     <div class="warn">Every endpoint except this page and <code>/health</code> needs
     <code>?admin=</code>. Without it the shop data would be public.</div>
+    <div class="warn" style="background:#e6f0e7;border-left-color:#2f7d3c">
+      <b>Read-only.</b> This service can only issue GET requests, only to an allowlist
+      of reporting endpoints, and refuses any path containing a write verb. It cannot
+      change a price, edit a product, touch inventory, cancel or ship an order, or
+      issue a refund &mdash; the code has no path to do so.
+    </div>
     """
