@@ -199,9 +199,19 @@ if(ADMIN) localStorage.setItem(ADMIN_KEY,ADMIN);
 let D={};                       // cached payloads per view
 let BUSY=false;
 
-const m=n=>(n==null?'—':'$'+Number(n).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}));
-const m0=n=>(n==null?'—':'$'+Math.round(Number(n)).toLocaleString());
-const n0=n=>(n==null?'—':Number(n).toLocaleString());
+// Sign goes OUTSIDE the currency symbol: -$576.72, never $-576.72.
+// Locale is PINNED to en-US on purpose. The shop trades in USD, and letting the
+// viewer's machine decide the separators means the same figure reads as
+// $7,205.48 on one laptop and $7.205,48 on another — unacceptable on a P&L.
+const m=n=>{if(n==null||n==='')return '—';const v=Number(n);if(!isFinite(v))return '—';
+  return (v<0?'-':'')+'$'+Math.abs(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});};
+const m0=n=>{if(n==null||n==='')return '—';const v=Number(n);if(!isFinite(v))return '—';
+  return (v<0?'-':'')+'$'+Math.abs(Math.round(v)).toLocaleString('en-US');};
+// Rate fields are plain text, not type=number: a browser in a comma-decimal
+// locale renders 33.33 as "33,33" in a number input, which reads like a typo on
+// a page about money. num() accepts either separator.
+const num=v=>{const t=String(v??'').trim().replace(',','.');return t===''?null:Number(t);};
+const n0=n=>(n==null?'—':Number(n).toLocaleString('en-US'));
 const pct=n=>(n==null?'—':(Number(n)*100).toFixed(1)+'%');
 const esc=s=>String(s??'').replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
 
@@ -590,10 +600,10 @@ function rosterTab(d){
      <div><label>handle</label><input id="a_handle" size="16" placeholder="janedoe"></div>
      <div><label>type</label><select id="a_type"><option value="video">Video</option>
        <option value="live">Lives</option></select></div>
-     <div><label>videos / month</label><input id="a_videos" type="number" min="0" style="width:6.5rem"></div>
-     <div><label>rate per video</label><input id="a_rate" type="number" step="any" style="width:7rem"></div>
-     <div><label>hourly</label><input id="a_hourly" type="number" step="any" style="width:6rem"></div>
-     <div><label>hours cap</label><input id="a_cap" type="number" min="0" style="width:6rem"></div>
+     <div><label>videos / month</label><input id="a_videos" inputmode="numeric" style="width:6.5rem"></div>
+     <div><label>rate per video</label><input id="a_rate" inputmode="decimal" style="width:7rem"></div>
+     <div><label>hourly</label><input id="a_hourly" inputmode="decimal" style="width:6rem"></div>
+     <div><label>hours cap</label><input id="a_cap" inputmode="numeric" style="width:6rem"></div>
      <div><label>commission</label><input id="a_comm" size="8" placeholder="20%"></div>
      <div><label>status</label><select id="a_status">
        <option value="">(blank — counts)</option><option>Active</option>
@@ -620,11 +630,11 @@ function rosterRow(c){
       <div class="hres tiny" data-k="${k}">${handleVerdictHtml(c)}</div></td>
     <td class="tiny">${c.type==='live'?'Lives':'Video'}</td>
     <td class="n">${c.type==='live'
-      ? `<input class="r_cap" data-k="${k}" type="number" min="0" value="${c.hours_cap??''}" style="width:5rem">`
-      : `<input class="r_videos" data-k="${k}" type="number" min="0" value="${c.committed_videos??''}" style="width:5rem">`}</td>
+      ? `<input class="r_cap" data-k="${k}" inputmode="numeric" value="${c.hours_cap??''}" style="width:5rem">`
+      : `<input class="r_videos" data-k="${k}" inputmode="numeric" value="${c.committed_videos??''}" style="width:5rem">`}</td>
     <td class="n">${c.type==='live'
-      ? `<input class="r_hourly" data-k="${k}" type="number" step="any" value="${c.hourly??''}" style="width:5.5rem">`
-      : `<input class="r_rate" data-k="${k}" type="number" step="any" value="${c.rate??''}" style="width:5.5rem">`}</td>
+      ? `<input class="r_hourly" data-k="${k}" inputmode="decimal" value="${c.hourly??''}" style="width:5.5rem">`
+      : `<input class="r_rate" data-k="${k}" inputmode="decimal" value="${c.rate??''}" style="width:5.5rem">`}</td>
     <td><input class="r_comm" data-k="${k}" value="${esc(c.commission||'')}" size="8"></td>
     <td class="tiny">${statusPill(c)}</td>
     <td style="white-space:nowrap">
@@ -668,10 +678,10 @@ async function checkRow(k){
 async function saveRow(k){
   const get=(cls)=>{const el=document.querySelector(`input.${cls}[data-k="${CSS.escape(k)}"]`);return el?el.value:undefined;};
   const fields={name:get('r_name'),handle:get('r_handle'),commission:get('r_comm')};
-  const v=get('r_videos'); if(v!==undefined) fields.videos=Number(v||0);
-  const r=get('r_rate');   if(r!==undefined) fields.rate=Number(r||0);
-  const ho=get('r_hourly');if(ho!==undefined) fields.hourly=ho===''?null:Number(ho);
-  const cp=get('r_cap');   if(cp!==undefined) fields.hours_cap=cp===''?null:Number(cp);
+  const v=get('r_videos'); if(v!==undefined) fields.videos=num(v)??0;
+  const r=get('r_rate');   if(r!==undefined) fields.rate=num(r)??0;
+  const ho=get('r_hourly');if(ho!==undefined) fields.hourly=num(ho);
+  const cp=get('r_cap');   if(cp!==undefined) fields.hours_cap=num(cp);
   const box=document.querySelector(`.hres[data-k="${CSS.escape(k)}"]`);
   box.innerHTML='<span class="spin"></span> saving…';
   try{
@@ -692,8 +702,8 @@ async function checkNew(){
 async function addNew(){
   const body={
     name:$('a_name').value, handle:$('a_handle').value, type:$('a_type').value,
-    videos:$('a_videos').value, rate:$('a_rate').value,
-    hourly:$('a_hourly').value, hours_cap:$('a_cap').value,
+    videos:num($('a_videos').value), rate:num($('a_rate').value),
+    hourly:num($('a_hourly').value), hours_cap:num($('a_cap').value),
     commission:$('a_comm').value, status:$('a_status').value,
   };
   $('a_msg').innerHTML='<span class="spin"></span> adding…';
@@ -772,7 +782,7 @@ async function renderPnl(force){
    <div class="bar">
      <div><label>description</label><input id="c_desc" size="22" placeholder="Team spend — Nov"></div>
      <div><label>category</label><input id="c_cat" size="12" placeholder="Team"></div>
-     <div><label>amount</label><input id="c_amt" type="number" step="any" style="width:8rem"></div>
+     <div><label>amount</label><input id="c_amt" inputmode="decimal" style="width:8rem"></div>
      <div><label>date (optional)</label><input id="c_date" type="date"></div>
      <div><label>pro-rata</label><select id="c_pr"><option value="1">on</option>
        <option value="0">off — charge in full</option></select></div>
@@ -784,7 +794,7 @@ async function renderPnl(force){
     const v=prompt('Override "'+b.closest('tr').querySelector('b').textContent+'" with:',b.dataset.v);
     if(v===null) return;
     const note=prompt('Why? (optional)','')||'';
-    await post('/api/store/pnl-cell',{month:d.month,row_id:b.dataset.id,value:Number(v),note});
+    await post('/api/store/pnl-cell',{month:d.month,row_id:b.dataset.id,value:num(v),note});
     route(false);
   });
   document.querySelectorAll('button.clr').forEach(b=>b.onclick=async()=>{
@@ -797,7 +807,7 @@ async function renderPnl(force){
     $('c_msg').textContent='saving…';
     try{
       await post('/api/store/cost',{month:d.month,description:$('c_desc').value,
-        category:$('c_cat').value,amount:$('c_amt').value,date:$('c_date').value,
+        category:$('c_cat').value,amount:num($('c_amt').value),date:$('c_date').value,
         pro_rata:$('c_pr').value==='1'});
       route(false);
     }catch(e){ $('c_msg').innerHTML=`<span class="pill no">${esc(e.message)}</span>`; }

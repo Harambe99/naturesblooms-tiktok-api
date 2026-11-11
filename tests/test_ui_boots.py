@@ -201,3 +201,37 @@ def test_admin_sentinel_is_never_used_in_a_comparison():
     for line in ui.PAGE.splitlines():
         if "__ADMIN__" in line and ("===" in line or "!==" in line):
             pytest.fail(f"__ADMIN__ used in a comparison (it gets rewritten): {line.strip()[:100]}")
+
+
+def test_money_puts_the_sign_before_the_currency_symbol():
+    """$-576.72 reads like a typo on a finance page; -$576.72 is correct."""
+    blocks = _script_blocks()
+    fmt = next(b for b in blocks if "const m=n=>" in b)
+    harness = (HARNESS.replace("__BLOCKS__", json.dumps([fmt + """
+globalThis.__out = [m(-576.72), m(0), m(1234.5), m0(-7205.48), m(null),
+                    num('33,33'), num('33.33'), num(''), num(null)];
+"""])).replace("__SEARCH__", '""').replace("__IDS__", json.dumps(_element_ids())))
+    harness = harness.replace(
+        "console.log(JSON.stringify({",
+        "console.log(JSON.stringify({ out: vm.runInContext('__out', ctx),")
+    p = subprocess.run([NODE, "-e", harness], capture_output=True, text=True, timeout=60)
+    assert p.returncode == 0, p.stderr[:1500]
+    out = json.loads(p.stdout.strip().splitlines()[-1])["out"]
+    assert out[0] == "-$576.72", f"negative money formatted as {out[0]!r}"
+    assert out[1] == "$0.00"
+    assert out[2] == "$1,234.50"
+    assert out[3] == "-$7,205"
+    assert out[4] == "—"
+    # comma-decimal locales must not silently corrupt a rate
+    assert out[5] == 33.33, f"num('33,33') -> {out[5]!r}"
+    assert out[6] == 33.33
+    assert out[7] is None and out[8] is None
+
+
+def test_rate_fields_are_not_locale_sensitive_number_inputs():
+    """type=number renders 33.33 as '33,33' in comma-decimal locales."""
+    for cls in ("r_rate", "r_hourly", "a_rate", "a_hourly", "c_amt"):
+        for line in ui.PAGE.splitlines():
+            if cls in line and "<input" in line:
+                assert 'type="number"' not in line, \
+                    f"{cls} is a number input — use inputmode + num(): {line.strip()[:90]}"
