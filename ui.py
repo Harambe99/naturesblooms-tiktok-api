@@ -236,11 +236,17 @@ function setFresh(meta){
 }
 
 /* ---------- router ---------- */
-const VIEWS={home:renderHome,daily:renderDaily,creators:renderCreators,pnl:renderPnl};
+// Resolved LAZILY on purpose. The render functions live in later <script> blocks,
+// and those run after this one — naming them in an object literal here would throw
+// a ReferenceError and kill this whole block (which is exactly what it did).
+const VIEW_NAMES=['home','daily','creators','pnl'];
+function viewFn(v){
+  return {home:renderHome,daily:renderDaily,creators:renderCreators,pnl:renderPnl}[v];
+}
 function currentRoute(){
   const h=(location.hash||'#/home').replace(/^#\//,'');
   const [v,sub]=h.split('/');
-  return {view:VIEWS[v]?v:'home', sub:sub||''};
+  return {view:VIEW_NAMES.includes(v)?v:'home', sub:sub||''};
 }
 async function route(force){
   const {view}=currentRoute();
@@ -248,9 +254,17 @@ async function route(force){
     const t=a.getAttribute('href').replace('#/','');
     if(t===view) a.setAttribute('aria-current','page'); else a.removeAttribute('aria-current');
   });
-  try{ await VIEWS[view](force); }
+  try{ await viewFn(view)(force); }
   catch(e){ $('view').innerHTML=`<div class="note bad"><b>Could not load.</b> ${esc(e.message)}</div>`; }
 }
+// A blank page with no explanation is the worst failure mode — if any script
+// block dies, say so on screen instead of rendering nothing.
+addEventListener('error',e=>{
+  const v=document.getElementById('view');
+  if(v && !v.innerHTML.trim())
+    v.innerHTML='<div class="note bad"><b>Script error — the page could not start.</b> '
+      +String(e.message||e.error||'').replace(/[<>&]/g,'')+'</div>';
+});
 addEventListener('hashchange',()=>route(false));
 $('refresh').onclick=()=>route(true);
 
