@@ -190,8 +190,12 @@ tr.off{opacity:.45}
 <script>
 const $=i=>document.getElementById(i);
 const ADMIN_KEY='nb_admin';
-let ADMIN=(new URLSearchParams(location.search).get('admin')||localStorage.getItem(ADMIN_KEY)||'__ADMIN__').trim();
-if(ADMIN && ADMIN!=='__ADMIN__') localStorage.setItem(ADMIN_KEY,ADMIN);
+// The server rewrites __ADMIN__ EVERYWHERE in this file, so it can only be used
+// as an injection point — never as a "token is missing" sentinel, or the guard
+// below would compare the real token against itself and always fail.
+const BOOT_ADMIN='__ADMIN__';
+let ADMIN=(new URLSearchParams(location.search).get('admin')||localStorage.getItem(ADMIN_KEY)||BOOT_ADMIN||'').trim();
+if(ADMIN) localStorage.setItem(ADMIN_KEY,ADMIN);
 let D={};                       // cached payloads per view
 let BUSY=false;
 
@@ -212,7 +216,7 @@ $('theme').onclick=()=>{
 
 /* ---------- fetch helpers ---------- */
 async function api(path,opts){
-  if(!ADMIN||ADMIN==='__ADMIN__'){ $('tokenbar').style.display='flex'; throw new Error('no admin token'); }
+  if(!ADMIN){ $('tokenbar').style.display='flex'; throw new Error('Paste your admin token above and press Save.'); }
   const sep=path.includes('?')?'&':'?';
   const r=await fetch(path+sep+'admin='+encodeURIComponent(ADMIN),opts);
   if(!r.ok){ throw new Error('HTTP '+r.status+' — '+(await r.text()).slice(0,300)); }
@@ -801,7 +805,7 @@ async function renderPnl(force){
 }
 
 /* ---------- boot ---------- */
-if(!ADMIN||ADMIN==='__ADMIN__') $('tokenbar').style.display='flex';
+if(!ADMIN) $('tokenbar').style.display='flex';
 if(!location.hash) location.hash='#/home';
 route(false);
 </script>

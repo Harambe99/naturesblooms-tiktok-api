@@ -59,7 +59,7 @@ globalThis.localStorage = {
   _d:{}, getItem(k){return this._d[k] ?? null},
   setItem(k,v){this._d[k]=String(v)}, removeItem(k){delete this._d[k]},
 };
-globalThis.location = { search:'?admin=TESTTOKEN', hash:'' };
+globalThis.location = { search:__SEARCH__, hash:'' };
 globalThis.addEventListener = ()=>{};
 globalThis.matchMedia = ()=>({matches:false});
 globalThis.CSS = { escape:s=>String(s) };
@@ -83,16 +83,20 @@ const probe = n => {
     && vm.runInContext(`typeof ${n}`, ctx) === 'function'; }
   catch (e) { return false; }
 };
+const val = n => { try { return vm.runInContext(n, ctx); } catch (e) { return null; } };
 console.log(JSON.stringify({
   errors,
   defined: ['renderHome','renderDaily','renderCreators','renderPnl','route','api','viewFn']
     .filter(probe),
+  admin: val('ADMIN'),
+  tokenbarShown: (made['tokenbar'] && made['tokenbar'].style.display) || '',
+  viewHtml: (made['view'] && made['view'].innerHTML) || '',
 }));
 """
 
 
-def _script_blocks():
-    page = ui.PAGE.replace("__ADMIN__", "TESTTOKEN")
+def _script_blocks(token="TESTTOKEN"):
+    page = ui.PAGE.replace("__ADMIN__", token)
     return re.findall(r"<script>(.*?)</script>", page, re.S)
 
 
@@ -104,11 +108,12 @@ def _element_ids():
     return sorted(set(re.findall(r'id="([A-Za-z0-9_\-]+)"', markup)))
 
 
-def _run():
-    blocks = _script_blocks()
+def _run(token="TESTTOKEN", search="?admin=TESTTOKEN"):
+    blocks = _script_blocks(token)
     assert blocks, "no <script> blocks found in ui.PAGE"
     harness = (HARNESS
                .replace("__BLOCKS__", json.dumps(blocks))
+               .replace("__SEARCH__", json.dumps(search))
                .replace("__IDS__", json.dumps(_element_ids())))
     p = subprocess.run([NODE, "-e", harness],
                        capture_output=True, text=True, timeout=60)
@@ -162,3 +167,37 @@ def test_page_surfaces_a_script_error_instead_of_rendering_nothing():
     """A silent blank page is the failure we are guarding against."""
     assert "addEventListener('error'" in ui.PAGE
     assert "could not start" in ui.PAGE
+
+
+def test_server_injected_token_is_used_when_the_url_has_no_param():
+    """The regression this guards: __ADMIN__ is rewritten EVERYWHERE in ui.py,
+    so using it as a 'missing token' sentinel made the guard compare the real
+    token against itself. Result was 'Could not load. no admin token' on a page
+    that had a perfectly good token."""
+    out = _run(token="INJECTEDTOKEN", search="")
+    assert out["errors"] == [], out["errors"]
+    assert out["admin"] == "INJECTEDTOKEN", \
+        f"server-injected token was not picked up (got {out['admin']!r})"
+    assert out["tokenbarShown"] != "flex", \
+        "token bar was shown even though a token was injected"
+    assert "no admin token" not in out["viewHtml"]
+
+
+def test_url_param_token_is_used():
+    out = _run(token="", search="?admin=FROMURL")
+    assert out["errors"] == [], out["errors"]
+    assert out["admin"] == "FROMURL"
+
+
+def test_token_bar_appears_only_when_there_is_genuinely_no_token():
+    out = _run(token="", search="")
+    assert out["errors"] == [], out["errors"]
+    assert out["admin"] == ""
+    assert out["tokenbarShown"] == "flex"
+
+
+def test_admin_sentinel_is_never_used_in_a_comparison():
+    """Static guard: __ADMIN__ may be an injection point, never a sentinel."""
+    for line in ui.PAGE.splitlines():
+        if "__ADMIN__" in line and ("===" in line or "!==" in line):
+            pytest.fail(f"__ADMIN__ used in a comparison (it gets rewritten): {line.strip()[:100]}")
